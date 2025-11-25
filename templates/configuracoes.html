@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+
+{% block title %}Configurações{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    
+    <div class="col-lg-8">
+        
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <i class="bi bi-check-circle-fill"></i> {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="card card-dashboard shadow mb-4">
+            <div class="card-header py-3 bg-white d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-primary">Meus Dados</h6>
+                <span class="badge bg-primary">Perfil</span>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary small fw-bold">Nome de Usuário</label>
+                            {{ form.username }}
+                            <div class="form-text text-muted small">Usado para fazer login no sistema.</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary small fw-bold">Email</label>
+                            {{ form.email }}
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary small fw-bold">Primeiro Nome</label>
+                            {{ form.first_name }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary small fw-bold">Sobrenome</label>
+                            {{ form.last_name }}
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <button type="submit" class="btn btn-primary px-4">
+                        <i class="bi bi-save"></i> Salvar Alterações
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        
+        <div class="card card-dashboard shadow mb-4 border-start border-warning border-5">
+            <div class="card-body">
+                <h5 class="fw-bold text-dark mb-3"><i class="bi bi-shield-lock"></i> Segurança</h5>
+                <p class="text-secondary small">Recomendamos alterar sua senha periodicamente para manter sua conta segura.</p>
+                <a href="{% url 'alterar_senha' %}" class="btn btn-warning w-100 text-dark fw-bold">
+                    Alterar Senha
+                </a>
+            </div>
+        </div>
+
+        <div class="card card-dashboard shadow mb-4">
+            <div class="card-body text-center">
+                <div class="mb-3">
+                    <i class="bi bi-grid-1x2-fill text-primary" style="font-size: 3rem;"></i>
+                </div>
+                <h5 class="fw-bold">My OS v1.0</h5>
+                <p class="text-muted small">Sistema de Gestão Pessoal</p>
+                <hr>
+                <p class="small text-secondary mb-0">Desenvolvido com Django & Bootstrap</p>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}

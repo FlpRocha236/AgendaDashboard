@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block title %}Bloco de Notas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Minhas Anotações</h1>
+    <a href="{% url 'nota_nova' %}" class="btn btn-warning text-dark fw-bold shadow-sm">
+        <i class="bi bi-sticky"></i> Nova Nota
+    </a>
+</div>
+
+<div class="row">
+    {% for nota in notas %}
+    <div class="col-md-4 mb-4">
+        <div class="card shadow-sm h-100" style="background-color: {{ nota.cor }}; border: 1px solid rgba(0,0,0,0.1);">
+            <div class="card-body position-relative d-flex flex-column">
+                
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h5 class="card-title fw-bold text-dark mb-0">{{ nota.titulo }}</h5>
+                    <i class="bi bi-pin-angle-fill text-dark opacity-25"></i>
+                </div>
+
+                <p class="card-text text-secondary flex-grow-1" style="white-space: pre-line;">{{ nota.conteudo }}</p>
+                
+                <div class="mt-3 pt-3 border-top border-dark border-opacity-10 d-flex justify-content-between align-items-center">
+                    <small class="text-muted" style="font-size: 0.75rem;">
+                        {{ nota.atualizado_em|date:"d/m H:i" }}
+                    </small>
+                    
+                    <div>
+                        <a href="{% url 'nota_editar' nota.id %}" class="btn btn-sm btn-outline-dark border-0 me-1" title="Editar">
+                            <i class="bi bi-pencil-square"></i>
+                        </a>
+                        <a href="{% url 'nota_deletar' nota.id %}" class="btn btn-sm btn-outline-danger border-0" title="Excluir" onclick="return confirm('Tem certeza que deseja rasgar esta nota?');">
+                            <i class="bi bi-trash"></i>
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12 text-center py-5">
+        <i class="bi bi-journal-x text-gray-300" style="font-size: 3rem; color: #ccc;"></i>
+        <p class="mt-3 text-muted">Nenhuma anotação encontrada.</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

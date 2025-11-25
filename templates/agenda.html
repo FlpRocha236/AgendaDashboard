@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block title %}Minha Agenda{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Agenda de Compromissos</h1>
+    <a href="{% url 'agenda_nova' %}" class="btn btn-primary">
+        <i class="bi bi-calendar-plus"></i> Novo Compromisso
+    </a>
+</div>
+
+<div class="card card-dashboard shadow mb-4">
+    <div class="card-body">
+        
+        <div class="list-group list-group-flush">
+            {% for item in compromissos %}
+            <div class="list-group-item d-flex justify-content-between align-items-center p-3 {% if item.concluido %}bg-light text-muted{% endif %}">
+                
+                <div class="d-flex align-items-center">
+                    <div class="text-center me-3 border rounded p-2 {% if item.concluido %}bg-secondary text-white{% else %}bg-primary text-white{% endif %}" style="min-width: 60px;">
+                        <div class="fw-bold" style="font-size: 0.8rem;">{{ item.data_hora|date:"M"|upper }}</div>
+                        <div class="h4 mb-0 fw-bold">{{ item.data_hora|date:"d" }}</div>
+                    </div>
+                    
+                    <div>
+                        <h5 class="mb-1 {% if item.concluido %}text-decoration-line-through{% endif %}">
+                            {{ item.titulo }}
+                        </h5>
+                        <div class="small">
+                            <i class="bi bi-clock"></i> {{ item.data_hora|date:"H:i" }}
+                            {% if item.local %}
+                                <span class="mx-2">|</span> <i class="bi bi-geo-alt"></i> {{ item.local }}
+                            {% endif %}
+                        </div>
+                        {% if item.descricao %}
+                            <small class="text-muted d-block mt-1">{{ item.descricao|truncatechars:100 }}</small>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-center">
+                    
+                    <div class="me-3">
+                        {% if item.concluido %}
+                            <span class="badge bg-secondary rounded-pill">Concluído</span>
+                        {% else %}
+                            <span class="badge bg-success rounded-pill">Pendente</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="border-start ps-3">
+                        <div class="btn-group-vertical btn-group-sm">
+                            <a href="{% url 'agenda_editar' item.id %}" class="btn btn-outline-secondary border-0" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <a href="{% url 'agenda_deletar' item.id %}" class="btn btn-outline-danger border-0" title="Excluir" onclick="return confirm('Excluir este compromisso?');">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        </div>
+                    </div>
+
+                </div> 
+                
+            </div> {% empty %}
+            <div class="text-center py-5">
+                <i class="bi bi-calendar4-week text-gray-300" style="font-size: 3rem; color: #ccc;"></i>
+                <p class="mt-3 text-muted">Sua agenda está livre!</p>
+            </div>
+            {% endfor %}
+        </div>
+
+    </div>
+</div>
+{% endblock %}

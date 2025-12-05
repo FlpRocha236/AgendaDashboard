@@ -4,15 +4,18 @@
 
 {% block content %}
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3 mb-0 text-gray-800">Visão Geral</h1>
-        <span class="text-secondary">Bem-vindo de volta!</span>
+        <div>
+            <h1 class="h3 mb-0 text-gray-800 fw-bold">Visão Geral</h1>
+            <span class="text-secondary small">Painel de Controle Unificado</span>
+        </div>
+        <span class="badge bg-primary shadow-sm p-2">{{ user.username }}</span>
     </div>
 
     <div class="row">
         <div class="col-md-4 mb-4">
             <div class="card card-dashboard h-100 py-2 border-start border-primary border-5">
                 <div class="card-body">
-                    <div class="text-uppercase text-primary fw-bold text-xs mb-1">Saldo Atual</div>
+                    <div class="text-uppercase text-primary fw-bold text-xs mb-1">Saldo em Conta</div>
                     <div class="h3 mb-0 fw-bold text-gray-800">R$ {{ saldo|floatformat:2 }}</div>
                 </div>
             </div>
@@ -20,7 +23,7 @@
         <div class="col-md-4 mb-4">
             <div class="card card-dashboard h-100 py-2 border-start border-success border-5">
                 <div class="card-body">
-                    <div class="text-uppercase text-success fw-bold text-xs mb-1">Receitas</div>
+                    <div class="text-uppercase text-success fw-bold text-xs mb-1">Receitas Mês</div>
                     <div class="h3 mb-0 fw-bold text-gray-800">R$ {{ receitas|floatformat:2 }}</div>
                 </div>
             </div>
@@ -28,7 +31,7 @@
         <div class="col-md-4 mb-4">
             <div class="card card-dashboard h-100 py-2 border-start border-danger border-5">
                 <div class="card-body">
-                    <div class="text-uppercase text-danger fw-bold text-xs mb-1">Despesas</div>
+                    <div class="text-uppercase text-danger fw-bold text-xs mb-1">Despesas Mês</div>
                     <div class="h3 mb-0 fw-bold text-gray-800">R$ {{ despesas|floatformat:2 }}</div>
                 </div>
             </div>
@@ -36,106 +39,164 @@
     </div>
 
     <div class="row">
-        
-        <div class="col-lg-5 mb-4">
+        <div class="col-lg-6 mb-4">
             <div class="card card-dashboard shadow h-100">
-                <div class="card-header py-3 bg-white border-bottom-0">
-                    <h6 class="m-0 font-weight-bold text-primary">Balanço Financeiro</h6>
+                <div class="card-header py-3 bg-white border-bottom-0 d-flex justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-success"><i class="bi bi-graph-up"></i> Aportes em Investimentos</h6>
+                    <small class="text-muted">Últimos 6 meses</small>
                 </div>
                 <div class="card-body">
-                    <div style="height: 300px; position: relative;">
-                        <canvas id="myChart"></canvas>
+                    <div style="height: 250px;">
+                        <canvas id="investChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6 mb-4">
+            <div class="card card-dashboard shadow h-100">
+                <div class="card-header py-3 bg-white border-bottom-0">
+                    <h6 class="m-0 font-weight-bold text-primary"><i class="bi bi-credit-card"></i> Fatura Atual dos Cartões</h6>
+                </div>
+                <div class="card-body">
+                    <div style="height: 250px;">
+                        <canvas id="cardChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        
+        <div class="col-lg-4 mb-4">
+            <div class="card card-dashboard shadow h-100">
+                <div class="card-header py-3 bg-white border-bottom-0">
+                    <h6 class="m-0 font-weight-bold text-secondary">Balanço (Receita x Despesa)</h6>
+                </div>
+                <div class="card-body">
+                    <div style="height: 200px;">
+                        <canvas id="pieChart"></canvas>
                     </div>
                 </div>
             </div>
         </div>
         
-        <div class="col-lg-7">
-            
-            <div class="card card-dashboard shadow mb-4">
+        <div class="col-lg-8 mb-4">
+            <div class="card card-dashboard shadow h-100">
                 <div class="card-header py-3 bg-white border-bottom-0 d-flex justify-content-between align-items-center">
-                    <h6 class="m-0 font-weight-bold text-primary">Próximos Compromissos</h6>
-                    <a href="{% url 'agenda' %}" class="btn btn-sm btn-light text-primary fw-bold">Ver todos</a>
+                    <h6 class="m-0 font-weight-bold text-secondary">Minha Rotina</h6>
                 </div>
-                <div class="card-body p-0">
-                    <div class="list-group list-group-flush">
-                        {% for item in compromissos %}
-                            <div class="list-group-item d-flex align-items-center border-0 border-bottom">
-                                <div class="me-3 text-center border rounded p-1 bg-light" style="min-width: 45px;">
-                                    <small class="d-block fw-bold text-secondary" style="font-size: 0.6rem;">{{ item.data_hora|date:"M"|upper }}</small>
-                                    <span class="fw-bold text-dark">{{ item.data_hora|date:"d" }}</span>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <h6 class="mb-0 text-dark" style="font-size: 0.9rem;">{{ item.titulo }}</h6>
-                                    <small class="text-muted">{{ item.data_hora|date:"H:i" }}</small>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 border-end">
+                            <h6 class="text-uppercase text-secondary small fw-bold mb-3">Próximos Compromissos</h6>
+                            <div class="list-group list-group-flush">
+                                {% for item in compromissos %}
+                                    <div class="list-group-item px-0 py-2 border-0 d-flex align-items-center">
+                                        <div class="me-3 text-center border rounded p-1 bg-light" style="min-width: 45px;">
+                                            <small class="d-block fw-bold text-secondary" style="font-size: 0.6rem;">{{ item.data_hora|date:"M"|upper }}</small>
+                                            <span class="fw-bold text-dark">{{ item.data_hora|date:"d" }}</span>
+                                        </div>
+                                        <div>
+                                            <div class="fw-bold text-dark small">{{ item.titulo }}</div>
+                                            <small class="text-muted">{{ item.data_hora|date:"H:i" }}</small>
+                                        </div>
+                                    </div>
+                                {% empty %}
+                                    <p class="text-muted small">Agenda livre.</p>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 ps-md-4 mt-4 mt-md-0">
+                            <h6 class="text-uppercase text-secondary small fw-bold mb-3">Notas Rápidas</h6>
+                            {% for nota in notas %}
+                            <div class="card shadow-sm mb-2 border-0" style="background-color: {{ nota.cor }};">
+                                <div class="card-body p-2">
+                                    <h6 class="card-title fw-bold text-dark mb-0 small">{{ nota.titulo }}</h6>
+                                    <p class="card-text text-secondary mb-0" style="font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                        {{ nota.conteudo }}
+                                    </p>
+                                    <a href="{% url 'nota_editar' nota.id %}" class="stretched-link"></a>
                                 </div>
                             </div>
-                        {% empty %}
-                            <p class="text-muted text-center p-3 m-0">Nenhum compromisso próximo.</p>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-
-            <div class="d-flex justify-content-between align-items-center mb-2 mt-4">
-                <h6 class="text-secondary fw-bold text-uppercase small ps-2 m-0">Últimas Notas</h6>
-                <a href="{% url 'notas' %}" class="text-decoration-none small">Ver todas</a>
-            </div>
-
-            <div class="row">
-                {% for nota in notas %}
-                <div class="col-md-6 mb-3"> <div class="card shadow-sm h-100 border-0" style="background-color: {{ nota.cor }}; transition: transform 0.2s;">
-                        <div class="card-body p-3">
-                            <h6 class="card-title fw-bold text-dark mb-1" style="font-size: 0.95rem;">
-                                <i class="bi bi-sticky me-1 opacity-50"></i> {{ nota.titulo }}
-                            </h6>
-                            <p class="card-text text-secondary small mb-0" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                {{ nota.conteudo }}
-                            </p>
+                            {% empty %}
+                                <p class="text-muted small">Nenhuma nota.</p>
+                            {% endfor %}
                         </div>
-                        <a href="{% url 'nota_editar' nota.id %}" class="stretched-link"></a>
                     </div>
                 </div>
-                {% empty %}
-                <div class="col-12">
-                    <div class="alert alert-light text-center text-muted border border-dashed">
-                        Nenhuma nota recente. <a href="{% url 'nota_nova' %}" class="fw-bold">Criar uma?</a>
-                    </div>
-                </div>
-                {% endfor %}
             </div>
+        </div>
 
-        </div> </div> {% endblock %}
+    </div>
+
+{% endblock %}
 
 {% block scripts_extra %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    const ctx = document.getElementById('myChart');
-    
-    // Tratamento de dados para garantir números válidos
-    const receitasRaw = "{{ receitas|stringformat:'f' }}".replace(',', '.');
-    const despesasRaw = "{{ despesas|stringformat:'f' }}".replace(',', '.');
-    
-    const receitas = parseFloat(receitasRaw) || 0; // Se der erro, vira 0
-    const despesas = parseFloat(despesasRaw) || 0;
+    // 1. GRÁFICO DE APORTES (BARRAS VERTICAIS)
+    const ctxInvest = document.getElementById('investChart');
+    new Chart(ctxInvest, {
+        type: 'bar',
+        data: {
+            labels: {{ labels_invest|safe }},
+            datasets: [{
+                label: 'Total Aportado (R$)',
+                data: {{ data_invest|safe }},
+                backgroundColor: '#1cc88a',
+                borderRadius: 5,
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
 
-    new Chart(ctx, {
+    // 2. GRÁFICO DE CARTÕES (BARRAS HORIZONTAIS)
+    const ctxCard = document.getElementById('cardChart');
+    new Chart(ctxCard, {
+        type: 'bar',
+        data: {
+            labels: {{ labels_cartao|safe }},
+            datasets: [{
+                label: 'Fatura Atual (R$)',
+                data: {{ data_cartao|safe }},
+                backgroundColor: {{ colors_cartao|safe }}, // Cores dinâmicas (Verde/Amarelo/Vermelho)
+                borderRadius: 5,
+            }]
+        },
+        options: {
+            indexAxis: 'y', // Isso faz a barra ser horizontal!
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { x: { beginAtZero: true } }
+        }
+    });
+
+    // 3. GRÁFICO DE PIZZA (O antigo)
+    const ctxPie = document.getElementById('pieChart');
+    const receitas = parseFloat("{{ receitas|stringformat:'f' }}".replace(',', '.')) || 0;
+    const despesas = parseFloat("{{ despesas|stringformat:'f' }}".replace(',', '.')) || 0;
+
+    new Chart(ctxPie, {
         type: 'doughnut',
         data: {
             labels: ['Receitas', 'Despesas'],
             datasets: [{
                 data: [receitas, despesas],
                 backgroundColor: ['#1cc88a', '#e74a3b'],
-                borderWidth: 0,
-                hoverOffset: 10
+                borderWidth: 0
             }]
         },
         options: { 
             maintainAspectRatio: false,
-            cutout: '65%', // Deixa a rosca mais fina e moderna
-            plugins: {
-                legend: { position: 'top' }
-            }
+            cutout: '70%',
+            plugins: { legend: { position: 'bottom' } }
         }
     });
 </script>

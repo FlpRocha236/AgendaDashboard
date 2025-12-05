@@ -1,47 +1,123 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-from django.db.models import Sum
+from django.db.models import Sum, F
 from django.utils import timezone
-from .models import Compromisso, Nota, Transacao
+from .models import Compromisso, Nota, Transacao, CartaoCredito, DespesaCartao, Ativo, OperacaoInvestimento
 from django.shortcuts import redirect, get_object_or_404
-from .forms import TransacaoForm, CompromissoForm, NotaForm
+from .forms import TransacaoForm, CompromissoForm, NotaForm, PerfilForm, CartaoForm, DespesaCartaoForm, AtivoForm, OperacaoInvestimentoForm
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import PasswordChangeForm
-from .forms import PerfilForm
+from django.db.models.functions import TruncMonth
 
 @login_required
 def dashboard(request):
-    # 1. Lógica Financeira (Soma tudo que é receita e tudo que é despesa)
+    # 1. DADOS FINANCEIROS BÁSICOS (KPIs)
     receitas = Transacao.objects.filter(user=request.user, tipo='receita').aggregate(Sum('valor'))['valor__sum'] or 0
     despesas = Transacao.objects.filter(user=request.user, tipo='despesa').aggregate(Sum('valor'))['valor__sum'] or 0
     saldo = receitas - despesas
 
-    # 2. Lógica da Agenda (Pega os próximos 5 compromissos que ainda não passaram)
+    # 2. DADOS PARA O GRÁFICO DE APORTES (INVESTIMENTOS)
+    from datetime import datetime, timedelta
+    
+    data_limite = timezone.now().date() - timedelta(days=180) # Últimos 6 meses
+    
+    # --- A CORREÇÃO ESTÁ AQUI EMBAIXO ---
+    aportes = OperacaoInvestimento.objects.filter(
+        ativo__user=request.user, # <--- CORRIGIDO: Era user__user, agora é ativo__user
+        tipo='C', 
+        data__gte=data_limite
+    ).order_by('data')
+
+    # Agrupando por mês (ex: "Jan/25": 500.00)
+    aportes_mes = {}
+    for aporte in aportes:
+        mes_ano = aporte.data.strftime("%b/%y") # Ex: "Nov/25"
+        valor = (aporte.quantidade * aporte.preco_unitario) + aporte.taxas
+        
+        if mes_ano in aportes_mes:
+            aportes_mes[mes_ano] += float(valor)
+        else:
+            aportes_mes[mes_ano] = float(valor)
+
+    # Listas para o Chart.js
+    labels_invest = list(aportes_mes.keys())
+    data_invest = list(aportes_mes.values())
+
+    # 3. DADOS PARA O GRÁFICO DE CARTÕES
+    cartoes = CartaoCredito.objects.filter(user=request.user)
+    labels_cartao = []
+    data_cartao = []
+    colors_cartao = []
+
+    for cartao in cartoes:
+        # Calcula gasto atual
+        gasto = DespesaCartao.objects.filter(cartao=cartao).aggregate(Sum('valor'))['valor__sum'] or 0
+        
+        labels_cartao.append(cartao.nome)
+        data_cartao.append(float(gasto))
+        
+        # Define cor baseada no uso do limite (Visual Alert)
+        uso = (gasto / cartao.limite) * 100 if cartao.limite > 0 else 0
+        if uso > 80:
+            colors_cartao.append('#e74a3b') # Vermelho (Perigo)
+        elif uso > 50:
+            colors_cartao.append('#f6c23e') # Amarelo (Atenção)
+        else:
+            colors_cartao.append('#4e73df') # Azul (Ok)
+
+    # 4. AGENDA E NOTAS
     agora = timezone.now()
     proximos_compromissos = Compromisso.objects.filter(
-        user=request.user, 
-        data_hora__gte=agora, 
-        concluido=False
-    ).order_by('data_hora')[:5]
-
-    # 3. Lógica das Notas (Pega as últimas 3 criadas)
-    notas = Nota.objects.filter(user=request.user).order_by('-atualizado_em')[:3]
+        user=request.user, data_hora__gte=agora, concluido=False
+    ).order_by('data_hora')[:3]
+    
+    notas = Nota.objects.filter(user=request.user).order_by('-atualizado_em')[:2]
 
     context = {
         'receitas': receitas,
         'despesas': despesas,
         'saldo': saldo,
         'compromissos': proximos_compromissos,
-        'notas': notas
+        'notas': notas,
+        'labels_invest': labels_invest,
+        'data_invest': data_invest,
+        'labels_cartao': labels_cartao,
+        'data_cartao': data_cartao,
+        'colors_cartao': colors_cartao,
     }
     
     return render(request, 'dashboard.html', context)
 
 @login_required
 def financas(request):
+    # 1. Fluxo de Caixa (Mantém o que já existia)
     transacoes = Transacao.objects.filter(user=request.user).order_by('-data')
-    return render(request, 'financas.html', {'transacoes': transacoes})
+
+    # 2. Cartões de Crédito
+    cartoes = CartaoCredito.objects.filter(user=request.user)
+    for cartao in cartoes:
+        # Calcula o total gasto no cartão (simplificado para o total geral por enquanto)
+        total_gasto = DespesaCartao.objects.filter(cartao=cartao).aggregate(Sum('valor'))['valor__sum'] or 0
+        cartao.total_gasto = total_gasto
+        cartao.disponivel = cartao.limite - total_gasto
+        # Calcula porcentagem de uso para a barra de progresso
+        if cartao.limite > 0:
+            cartao.porcentagem_uso = (total_gasto / cartao.limite) * 100
+        else:
+            cartao.porcentagem_uso = 0
+
+    # 3. Investimentos
+    ativos = Ativo.objects.filter(user=request.user)
+    total_investido = sum(a.total_investido() for a in ativos)
+
+    context = {
+        'transacoes': transacoes,
+        'cartoes': cartoes,
+        'ativos': ativos,
+        'total_investido': total_investido
+    }
+    return render(request, 'financas.html', context)
 
 @login_required
 def agenda(request):
@@ -183,3 +259,95 @@ def alterar_senha(request):
             field.widget.attrs['class'] = 'form-control'
 
     return render(request, 'form_generico.html', {'form': form, 'titulo': 'Alterar Senha'})
+
+# CRUD CARTÕES
+
+@login_required
+def cartao_novo(request):
+    if request.method == 'POST':
+        form = CartaoForm(request.POST)
+        if form.is_valid():
+            cartao = form.save(commit=False)
+            cartao.user = request.user
+            cartao.save()
+            return redirect('financas')
+    else:
+        form = CartaoForm()
+    return render(request, 'form_generico.html', {'form': form, 'titulo': 'Novo Cartão de Crédito'})
+
+@login_required
+def despesa_cartao_nova(request):
+    if request.method == 'POST':
+        form = DespesaCartaoForm(request.POST)
+        if form.is_valid():
+            # Aqui poderíamos adicionar lógica para verificar se o cartão pertence ao user
+            form.save() 
+            return redirect('financas')
+    else:
+        form = DespesaCartaoForm()
+        # Filtra para aparecer apenas os cartões do usuário logado no dropdown
+        form.fields['cartao'].queryset = CartaoCredito.objects.filter(user=request.user)
+        
+    return render(request, 'form_generico.html', {'form': form, 'titulo': 'Nova Despesa no Cartão'})
+
+# CRUD INVESTIMENTOS
+
+@login_required
+def ativo_novo(request):
+    if request.method == 'POST':
+        form = AtivoForm(request.POST)
+        if form.is_valid():
+            ativo = form.save(commit=False)
+            ativo.user = request.user
+            ativo.save()
+            return redirect('financas')
+    else:
+        form = AtivoForm()
+    return render(request, 'form_generico.html', {'form': form, 'titulo': 'Novo Ativo Financeiro'})
+
+@login_required
+def operacao_nova(request):
+    if request.method == 'POST':
+        form = OperacaoInvestimentoForm(request.POST)
+        if form.is_valid():
+            operacao = form.save(commit=False)
+            
+            # Segurança: verificar se o ativo pertence ao usuário
+            if operacao.ativo.user != request.user:
+                return redirect('financas') # Bloqueia se tentar mexer no ativo de outro
+            
+            operacao.save()
+
+            # --- LÓGICA MÁGICA: ATUALIZA O SALDO DO ATIVO ---
+            ativo = operacao.ativo
+            
+            # 1. Recalcula Quantidade
+            # Soma todas as compras e subtrai todas as vendas
+            compras = OperacaoInvestimento.objects.filter(ativo=ativo, tipo='C').aggregate(Sum('quantidade'))['quantidade__sum'] or 0
+            vendas = OperacaoInvestimento.objects.filter(ativo=ativo, tipo='V').aggregate(Sum('quantidade'))['quantidade__sum'] or 0
+            ativo.quantidade_atual = compras - vendas
+            
+            # 2. Recalcula Preço Médio (Média Ponderada simples das compras)
+            # Nota: Isso é uma simplificação. PM fiscal é mais complexo, mas serve para gestão pessoal.
+            if ativo.quantidade_atual > 0:
+                total_gasto = 0
+                todas_compras = OperacaoInvestimento.objects.filter(ativo=ativo, tipo='C')
+                for c in todas_compras:
+                    total_gasto += (c.quantidade * c.preco_unitario) + c.taxas
+                
+                # Se só comprou, o PM é o total gasto / total comprado
+                # Se vendeu, a lógica contábil mantém o PM, mas vamos simplificar:
+                ativo.preco_medio = total_gasto / compras
+            else:
+                ativo.preco_medio = 0
+
+            ativo.save()
+            # -----------------------------------------------
+
+            return redirect('financas')
+    else:
+        form = OperacaoInvestimentoForm()
+        # Filtra o dropdown para mostrar apenas ativos do usuário logado
+        form.fields['ativo'].queryset = Ativo.objects.filter(user=request.user)
+
+    return render(request, 'form_generico.html', {'form': form, 'titulo': 'Nova Operação (Aporte/Venda)'})

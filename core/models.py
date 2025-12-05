@@ -63,3 +63,77 @@ class Transacao(models.Model):
     class Meta:
         verbose_name = "Transação"
         verbose_name_plural = "Transações"
+
+# === MÓDULO CARTÃO DE CRÉDITO ===
+
+class CartaoCredito(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    nome = models.CharField(max_length=50, help_text="Ex: Nubank, Visa Platinum")
+    limite = models.DecimalField(max_digits=10, decimal_places=2)
+    dia_fechamento = models.IntegerField(help_text="Dia que a fatura fecha (1-31)")
+    dia_vencimento = models.IntegerField(help_text="Dia que a fatura vence (1-31)")
+    
+    def __str__(self):
+        return self.nome
+
+class DespesaCartao(models.Model):
+    cartao = models.ForeignKey(CartaoCredito, on_delete=models.CASCADE, related_name='despesas')
+    descricao = models.CharField(max_length=200)
+    valor = models.DecimalField(max_digits=10, decimal_places=2)
+    data_compra = models.DateField()
+    categoria = models.CharField(max_length=20, choices=Transacao.CATEGORIA_CHOICES, default='outros')
+    
+    # Controle de Parcelas (Opcional, mas profissional)
+    parcelas = models.IntegerField(default=1, verbose_name="Qtde Parcelas")
+    parcela_atual = models.IntegerField(default=1)
+
+    def __str__(self):
+        return f"{self.descricao} ({self.parcela_atual}/{self.parcelas})"
+
+# === MÓDULO INVESTIMENTOS ===
+
+class Ativo(models.Model):
+    TIPO_ATIVO = [
+        ('acao', 'Ação'),
+        ('fii', 'Fundo Imobiliário (FII)'),
+        ('renda_fixa', 'Renda Fixa / Tesouro'),
+        ('crypto', 'Criptomoeda'),
+        ('fundo', 'Fundo de Investimento'),
+        ('exterior', 'Stocks / REITs'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    codigo = models.CharField(max_length=20, help_text="Ex: PETR4, HGLG11, CDB Banco X")
+    tipo = models.CharField(max_length=20, choices=TIPO_ATIVO)
+    
+    # Campos calculados (cache) para não processar tudo toda hora
+    quantidade_atual = models.DecimalField(max_digits=15, decimal_places=8, default=0) # 8 casas p/ Crypto
+    preco_medio = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    
+    def __str__(self):
+        return f"{self.codigo} ({self.get_tipo_display()})"
+
+    def total_investido(self):
+        return self.quantidade_atual * self.preco_medio
+
+class OperacaoInvestimento(models.Model):
+    TIPO_OPERACAO = [
+        ('C', 'Compra'),
+        ('V', 'Venda'),
+        ('D', 'Dividendos/Rendimentos'),
+    ]
+    
+    ativo = models.ForeignKey(Ativo, on_delete=models.CASCADE, related_name='operacoes')
+    tipo = models.CharField(max_length=1, choices=TIPO_OPERACAO)
+    data = models.DateField()
+    quantidade = models.DecimalField(max_digits=15, decimal_places=8, default=0)
+    preco_unitario = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    taxas = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    def valor_total(self):
+        if self.tipo == 'D':
+            return self.preco_unitario # No caso de dividendo, é o valor recebido
+        return (self.quantidade * self.preco_unitario) + self.taxas
+
+    def __str__(self):
+        return f"{self.tipo} - {self.ativo.codigo} - {self.data}"

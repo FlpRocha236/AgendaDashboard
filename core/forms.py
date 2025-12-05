@@ -1,5 +1,5 @@
 from django import forms
-from .models import Transacao, Compromisso, Nota 
+from .models import Transacao, Compromisso, Nota, CartaoCredito, DespesaCartao, Ativo, OperacaoInvestimento
 from django.contrib.auth.models import User
 
 # Estilo padrão do Bootstrap para todos os campos
@@ -48,4 +48,30 @@ class PerfilForm(BootstrapModelForm):
         fields = ['first_name', 'last_name', 'email', 'username']
         help_texts = {
             'username': 'Seu nome de usuário para login.',
+        }
+
+class CartaoForm(BootstrapModelForm):
+    class Meta:
+        model = CartaoCredito
+        fields = ['nome', 'limite', 'dia_fechamento', 'dia_vencimento']
+
+class DespesaCartaoForm(BootstrapModelForm):
+    class Meta:
+        model = DespesaCartao
+        fields = ['cartao', 'descricao', 'valor', 'data_compra', 'categoria', 'parcelas']
+        widgets = {
+            'data_compra': forms.DateInput(attrs={'type': 'date'}),
+        }
+
+class AtivoForm(BootstrapModelForm):
+    class Meta:
+        model = Ativo
+        fields = ['codigo', 'tipo']
+
+class OperacaoInvestimentoForm(BootstrapModelForm):
+    class Meta:
+        model = OperacaoInvestimento
+        fields = ['ativo', 'tipo', 'data', 'quantidade', 'preco_unitario', 'taxas']
+        widgets = {
+            'data': forms.DateInput(attrs={'type': 'date'}),
         }

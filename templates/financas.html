@@ -1,71 +1,179 @@
 {% extends 'base.html' %}
 
-{% block title %}Minhas Finanças{% endblock %}
+{% block title %}Gestão Financeira{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h3 mb-0 text-gray-800">Controle Financeiro</h1>
-    <a href="{% url 'transacao_nova' %}" class="btn btn-primary">
-    <i class="bi bi-plus-lg"></i> Nova Transação
-    </a>
+    <h1 class="h3 mb-0 text-gray-800">Central Financeira</h1>
 </div>
 
-<div class="card card-dashboard shadow mb-4">
-    <div class="card-header py-3 bg-white">
-        <h6 class="m-0 font-weight-bold text-primary">Histórico de Transações</h6>
-    </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-hover" width="100%" cellspacing="0">
-                <thead>
-                    <tr>
-                        <th>Data</th>
-                        <th>Descrição</th>
-                        <th>Categoria</th>
-                        <th>Tipo</th>
-                        <th>Valor</th>
-                        <th>Status</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for t in transacoes %}
-                    <tr>
-                        <td>{{ t.data|date:"d/m/Y" }}</td>
-                        <td>{{ t.descricao }}</td>
-                        <td><span class="badge bg-secondary">{{ t.get_categoria_display }}</span></td>
-                        <td>
-                            {% if t.tipo == 'receita' %}
-                                <span class="text-success fw-bold"><i class="bi bi-arrow-up"></i> Receita</span>
-                            {% else %}
-                                <span class="text-danger fw-bold"><i class="bi bi-arrow-down"></i> Despesa</span>
-                            {% endif %}
-                        </td>
-                        <td class="fw-bold">R$ {{ t.valor }}</td>
-                        <td>
-                            {% if t.pago %}
-                                <i class="bi bi-check-circle-fill text-success" title="Pago/Recebido"></i>
-                            {% else %}
-                                <i class="bi bi-clock text-warning" title="Pendente"></i>
-                            {% endif %}
-                        </td>
-                        <td class="text-end">
-                            <a href="{% url 'transacao_editar' t.id %}" class="btn btn-sm btn-outline-primary" title="Editar">
-                                <i class="bi bi-pencil"></i>
-                            </a>
-                            <a href="{% url 'transacao_deletar' t.id %}" class="btn btn-sm btn-outline-danger" title="Excluir" onclick="return confirm('Tem certeza que deseja excluir esta transação?');">
-                                <i class="bi bi-trash"></i>
-                            </a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="6" class="text-center text-muted">Nenhuma transação encontrada.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+<ul class="nav nav-tabs mb-4" id="financeTab" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active fw-bold" id="fluxo-tab" data-bs-toggle="tab" data-bs-target="#fluxo" type="button" role="tab">
+            <i class="bi bi-cash-coin"></i> Fluxo de Caixa
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link fw-bold" id="cartoes-tab" data-bs-toggle="tab" data-bs-target="#cartoes" type="button" role="tab">
+            <i class="bi bi-credit-card"></i> Cartões de Crédito
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link fw-bold" id="investimentos-tab" data-bs-toggle="tab" data-bs-target="#investimentos" type="button" role="tab">
+            <i class="bi bi-graph-up-arrow"></i> Investimentos
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="financeTabContent">
+    
+    <div class="tab-pane fade show active" id="fluxo" role="tabpanel">
+        <div class="d-flex justify-content-end mb-3">
+            <a href="{% url 'transacao_nova' %}" class="btn btn-primary shadow-sm">
+                <i class="bi bi-plus-lg"></i> Nova Transação
+            </a>
+        </div>
+        
+        <div class="card card-dashboard shadow mb-4">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Data</th>
+                                <th>Descrição</th>
+                                <th>Categoria</th>
+                                <th>Valor</th>
+                                <th>Status</th>
+                                <th class="text-end">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for t in transacoes %}
+                            <tr>
+                                <td>{{ t.data|date:"d/m/Y" }}</td>
+                                <td>{{ t.descricao }}</td>
+                                <td><span class="badge bg-light text-dark border">{{ t.get_categoria_display }}</span></td>
+                                <td class="fw-bold {% if t.tipo == 'receita' %}text-success{% else %}text-danger{% endif %}">
+                                    {% if t.tipo == 'receita' %}+{% else %}-{% endif %} R$ {{ t.valor }}
+                                </td>
+                                <td>
+                                    {% if t.pago %}
+                                        <i class="bi bi-check-circle-fill text-success" title="Efetuado"></i>
+                                    {% else %}
+                                        <i class="bi bi-clock text-warning" title="Pendente"></i>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <a href="{% url 'transacao_editar' t.id %}" class="btn btn-sm btn-outline-primary border-0"><i class="bi bi-pencil"></i></a>
+                                    <a href="{% url 'transacao_deletar' t.id %}" class="btn btn-sm btn-outline-danger border-0" onclick="return confirm('Excluir?')"><i class="bi bi-trash"></i></a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="6" class="text-center py-4 text-muted">Nenhuma movimentação.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
+
+    <div class="tab-pane fade" id="cartoes" role="tabpanel">
+        <div class="d-flex justify-content-end mb-3 gap-2">
+            <a href="{% url 'cartao_novo' %}" class="btn btn-outline-primary">
+                <i class="bi bi-credit-card-2-front"></i> Novo Cartão
+            </a>
+            <a href="{% url 'despesa_cartao_nova' %}" class="btn btn-danger text-white">
+                <i class="bi bi-bag-plus"></i> Nova Compra no Cartão
+            </a>
+        </div>
+
+        <div class="row">
+            {% for cartao in cartoes %}
+            <div class="col-md-6 mb-4">
+                <div class="card card-dashboard shadow h-100 border-start border-primary border-5">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="font-weight-bold text-primary mb-0">{{ cartao.nome }}</h5>
+                            <span class="badge bg-primary">Vence dia {{ cartao.dia_vencimento }}</span>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between small mb-1">
+                                <span>Limite Utilizado</span>
+                                <span class="fw-bold">{{ cartao.porcentagem_uso|floatformat:1 }}%</span>
+                            </div>
+                            <div class="progress" style="height: 10px;">
+                                <div class="progress-bar {% if cartao.porcentagem_uso > 80 %}bg-danger{% else %}bg-primary{% endif %}" 
+                                     role="progressbar" style="width: {{ cartao.porcentagem_uso|stringformat:'f' }}%"></div>
+                            </div>
+                        </div>
+
+                        <div class="row text-center mt-4">
+                            <div class="col-6 border-end">
+                                <small class="text-uppercase text-secondary fw-bold" style="font-size: 0.7rem;">Fatura Atual</small>
+                                <div class="h5 fw-bold text-danger">R$ {{ cartao.total_gasto|floatformat:2 }}</div>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-uppercase text-secondary fw-bold" style="font-size: 0.7rem;">Disponível</small>
+                                <div class="h5 fw-bold text-success">R$ {{ cartao.disponivel|floatformat:2 }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12 text-center py-5">
+                <p class="text-muted">Nenhum cartão cadastrado.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="investimentos" role="tabpanel">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="h5 text-success mb-0">Patrimônio Total: <strong>R$ {{ total_investido|floatformat:2 }}</strong></div>
+            
+            <div class="btn-group">
+                <a href="{% url 'ativo_novo' %}" class="btn btn-outline-success">
+                    <i class="bi bi-plus-circle"></i> Novo Ativo
+                </a>
+                <a href="{% url 'operacao_nova' %}" class="btn btn-success text-white fw-bold">
+                    <i class="bi bi-cash-coin"></i> Novo Aporte
+                </a>
+            </div>
+        </div>
+
+        <div class="row">
+            {% for ativo in ativos %}
+            <div class="col-md-4 mb-3">
+                <div class="card card-dashboard shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="fw-bold mb-0">{{ ativo.codigo }}</h6>
+                                <small class="text-muted">{{ ativo.get_tipo_display }}</small>
+                            </div>
+                            <div class="text-end">
+                                <div class="fw-bold text-success">R$ {{ ativo.total_investido|floatformat:2 }}</div>
+                                <small class="text-muted">{{ ativo.quantidade_atual }} cotas</small>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="d-grid">
+                            <button class="btn btn-sm btn-outline-secondary">Detalhes</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12 text-center py-5">
+                <p class="text-muted">Carteira vazia. Comece a investir!</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
 </div>
 {% endblock %}

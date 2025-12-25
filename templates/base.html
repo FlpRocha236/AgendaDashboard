@@ -37,8 +37,13 @@
             <a href="{% url 'dashboard' %}" class="nav-link"><i class="bi bi-speedometer2"></i> Dashboard</a>
             <a href="{% url 'agenda' %}" class="nav-link"><i class="bi bi-calendar-event"></i> Agenda</a>
             <a href="{% url 'financas' %}" class="nav-link"><i class="bi bi-wallet2"></i> Finanças</a>
+            
+            <a href="{% url 'desafios_lista' %}" class="nav-link"><i class="bi bi-trophy-fill"></i> Desafios / Metas</a>
+            
             <a href="{% url 'notas' %}" class="nav-link"><i class="bi bi-journal-text"></i> Anotações</a>
+            
             <a href="{% url 'configuracoes' %}" class="nav-link mt-5"><i class="bi bi-gear"></i> Configurações</a>
+            
             <form action="{% url 'logout' %}" method="post" id="logout-form" style="display: none;">
                 {% csrf_token %}
             </form>

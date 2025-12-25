@@ -1,5 +1,5 @@
 from django import forms
-from .models import Transacao, Compromisso, Nota, CartaoCredito, DespesaCartao, Ativo, OperacaoInvestimento
+from .models import Transacao, Compromisso, Nota, CartaoCredito, DespesaCartao, Ativo, OperacaoInvestimento, Desafio
 from django.contrib.auth.models import User
 
 # Estilo padrão do Bootstrap para todos os campos
@@ -74,4 +74,12 @@ class OperacaoInvestimentoForm(BootstrapModelForm):
         fields = ['ativo', 'tipo', 'data', 'quantidade', 'preco_unitario', 'taxas']
         widgets = {
             'data': forms.DateInput(attrs={'type': 'date'}),
+        }
+
+class DesafioForm(BootstrapModelForm):
+    class Meta:
+        model = Desafio
+        fields = ['objetivo', 'valor_inicial', 'incremento', 'duracao_semanas', 'data_inicio']
+        widgets = {
+            'data_inicio': forms.DateInput(attrs={'type': 'date'}),
         }

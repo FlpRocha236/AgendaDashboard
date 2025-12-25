@@ -8,8 +8,8 @@ from django.contrib.auth.forms import PasswordChangeForm
 from datetime import datetime, timedelta
 
 # Importação dos Models e Forms
-from .models import Compromisso, Nota, Transacao, CartaoCredito, DespesaCartao, Ativo, OperacaoInvestimento
-from .forms import TransacaoForm, CompromissoForm, NotaForm, PerfilForm, CartaoForm, DespesaCartaoForm, AtivoForm, OperacaoInvestimentoForm
+from .models import Compromisso, Nota, Transacao, CartaoCredito, DespesaCartao, Ativo, OperacaoInvestimento, Desafio, SemanaDesafio
+from .forms import TransacaoForm, CompromissoForm, NotaForm, PerfilForm, CartaoForm, DespesaCartaoForm, AtivoForm, OperacaoInvestimentoForm, DesafioForm
 
 # --- FUNÇÃO AUXILIAR (Helper) ---
 def recalcular_ativo(ativo):
@@ -95,6 +95,9 @@ def dashboard(request):
     
     notas = Nota.objects.filter(user=request.user).order_by('-atualizado_em')[:2]
 
+    # 5. DESAFIO ATIVO (NOVO: Adicionado aqui!)
+    desafio_ativo = Desafio.objects.filter(user=request.user, concluido=False).first()
+
     context = {
         'receitas': receitas,
         'despesas': despesas,
@@ -106,6 +109,7 @@ def dashboard(request):
         'labels_cartao': labels_cartao,
         'data_cartao': data_cartao,
         'colors_cartao': colors_cartao,
+        'desafio_ativo': desafio_ativo, # Enviando para o template
     }
     return render(request, 'dashboard.html', context)
 
@@ -326,6 +330,14 @@ def despesa_cartao_deletar(request, id):
         despesa.delete()
     return redirect('financas')
 
+@login_required
+def cartao_deletar(request, id):
+    cartao = get_object_or_404(CartaoCredito, pk=id)
+    # Segurança: Só deleta se o cartão for do usuário logado
+    if cartao.user == request.user:
+        cartao.delete()
+    return redirect('financas')
+
 # --- CRUD INVESTIMENTOS ---
 
 @login_required
@@ -386,16 +398,6 @@ def operacao_deletar(request, id):
         recalcular_ativo(ativo) # Recalcula saldo após deletar
     return redirect('financas')
 
-# --- ADICIONE NO FINAL DO ARQUIVO ---
-
-@login_required
-def cartao_deletar(request, id):
-    cartao = get_object_or_404(CartaoCredito, pk=id)
-    # Segurança: Só deleta se o cartão for do usuário logado
-    if cartao.user == request.user:
-        cartao.delete()
-    return redirect('financas')
-
 @login_required
 def ativo_deletar(request, id):
     ativo = get_object_or_404(Ativo, pk=id)
@@ -403,3 +405,56 @@ def ativo_deletar(request, id):
     if ativo.user == request.user:
         ativo.delete()
     return redirect('financas')
+
+# --- MÓDULO DE DESAFIOS & METAS ---
+
+@login_required
+def desafios_lista(request):
+    desafios = Desafio.objects.filter(user=request.user, concluido=False)
+    return render(request, 'desafios.html', {'desafios': desafios})
+
+@login_required
+def desafio_novo(request):
+    if request.method == 'POST':
+        form = DesafioForm(request.POST)
+        if form.is_valid():
+            desafio = form.save(commit=False)
+            desafio.user = request.user
+            desafio.save()
+
+            # --- GERAÇÃO AUTOMÁTICA DAS SEMANAS ---
+            valor_atual = desafio.valor_inicial
+            data_atual = desafio.data_inicio
+            
+            for i in range(1, desafio.duracao_semanas + 1):
+                SemanaDesafio.objects.create(
+                    desafio=desafio,
+                    numero=i,
+                    data_prevista=data_atual,
+                    valor=valor_atual
+                )
+                # Prepara próxima semana
+                valor_atual += desafio.incremento
+                data_atual += timedelta(days=7)
+            # --------------------------------------
+
+            return redirect('desafios_lista')
+    else:
+        form = DesafioForm()
+    return render(request, 'form_generico.html', {'form': form, 'titulo': 'Novo Desafio Financeiro'})
+
+@login_required
+def desafio_pagar_semana(request, id):
+    semana = get_object_or_404(SemanaDesafio, pk=id)
+    if semana.desafio.user == request.user:
+        semana.pago = not semana.pago # Alterna entre pago e não pago (toggle)
+        semana.data_pagamento = timezone.now() if semana.pago else None
+        semana.save()
+    return redirect('desafios_lista')
+
+@login_required
+def desafio_excluir(request, id):
+    desafio = get_object_or_404(Desafio, pk=id)
+    if desafio.user == request.user:
+        desafio.delete()
+    return redirect('desafios_lista')

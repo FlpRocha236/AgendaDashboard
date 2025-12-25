@@ -38,6 +38,45 @@
         </div>
     </div>
 
+    {% if desafio_ativo %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-start border-info border-5 shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col me-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Desafio Ativo: {{ desafio_ativo.objetivo }}
+                            </div>
+                            <div class="row no-gutters align-items-center">
+                                <div class="col-auto">
+                                    <div class="h5 mb-0 me-3 font-weight-bold text-gray-800">
+                                        R$ {{ desafio_ativo.total_pago|floatformat:0 }} <small class="text-muted">/ {{ desafio_ativo.total_planejado|floatformat:0 }}</small>
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <div class="progress progress-sm me-2">
+                                        <div class="progress-bar bg-info progress-bar-striped progress-bar-animated" role="progressbar" 
+                                             style="width: {{ desafio_ativo.progresso_percentual|stringformat:'f' }}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <a href="{% url 'desafios_lista' %}" class="btn btn-sm btn-outline-info">
+                                    <i class="bi bi-eye"></i> Acompanhar e Pagar
+                                </a>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-trophy-fill fs-1 text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="row">
         <div class="col-lg-6 mb-4">
             <div class="card card-dashboard shadow h-100">
@@ -166,19 +205,19 @@
             datasets: [{
                 label: 'Fatura Atual (R$)',
                 data: {{ data_cartao|safe }},
-                backgroundColor: {{ colors_cartao|safe }}, // Cores dinâmicas (Verde/Amarelo/Vermelho)
+                backgroundColor: {{ colors_cartao|safe }}, 
                 borderRadius: 5,
             }]
         },
         options: {
-            indexAxis: 'y', // Isso faz a barra ser horizontal!
+            indexAxis: 'y', 
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: { x: { beginAtZero: true } }
         }
     });
 
-    // 3. GRÁFICO DE PIZZA (O antigo)
+    // 3. GRÁFICO DE PIZZA
     const ctxPie = document.getElementById('pieChart');
     const receitas = parseFloat("{{ receitas|stringformat:'f' }}".replace(',', '.')) || 0;
     const despesas = parseFloat("{{ despesas|stringformat:'f' }}".replace(',', '.')) || 0;

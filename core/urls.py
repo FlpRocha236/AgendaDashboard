@@ -29,4 +29,8 @@ urlpatterns = [
     path('financas/ativo/operacao/deletar/<int:id>/', views.operacao_deletar, name='operacao_deletar'),   
     path('financas/cartao/deletar/<int:id>/', views.cartao_deletar, name='cartao_deletar'),
     path('financas/ativo/deletar/<int:id>/', views.ativo_deletar, name='ativo_deletar'),
+    path('desafios/', views.desafios_lista, name='desafios_lista'),
+    path('desafios/novo/', views.desafio_novo, name='desafio_novo'),
+    path('desafios/pagar/<int:id>/', views.desafio_pagar_semana, name='desafio_pagar_semana'),
+    path('desafios/excluir/<int:id>/', views.desafio_excluir, name='desafio_excluir'),
 ]

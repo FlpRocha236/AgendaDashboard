@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone 
 
 # 1. AGENDA / COMPROMISSOS
 class Compromisso(models.Model):
@@ -137,3 +138,42 @@ class OperacaoInvestimento(models.Model):
 
     def __str__(self):
         return f"{self.tipo} - {self.ativo.codigo} - {self.data}"
+
+class Desafio(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    objetivo = models.CharField(max_length=100, help_text="Ex: Trocar de Moto, Viagem")
+    valor_inicial = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Depósito da 1ª Semana")
+    incremento = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Aumento por Semana", help_text="Quanto aumenta o depósito a cada semana?")
+    duracao_semanas = models.IntegerField(default=52, verbose_name="Duração (Semanas)")
+    data_inicio = models.DateField(default=timezone.now)
+    concluido = models.BooleanField(default=False)
+
+    def total_planejado(self):
+        # Soma de Progressão Aritmética: (a1 + an) * n / 2
+        valor_final = self.valor_inicial + ((self.duracao_semanas - 1) * self.incremento)
+        return (self.valor_inicial + valor_final) * self.duracao_semanas / 2
+
+    def total_pago(self):
+        return self.semanas.filter(pago=True).aggregate(models.Sum('valor'))['valor__sum'] or 0
+
+    def progresso_percentual(self):
+        total = self.total_planejado()
+        if total == 0: return 0
+        return (self.total_pago() / total) * 100
+
+    def __str__(self):
+        return self.objetivo
+
+class SemanaDesafio(models.Model):
+    desafio = models.ForeignKey(Desafio, on_delete=models.CASCADE, related_name='semanas')
+    numero = models.IntegerField()
+    data_prevista = models.DateField()
+    valor = models.DecimalField(max_digits=10, decimal_places=2)
+    pago = models.BooleanField(default=False)
+    data_pagamento = models.DateField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['numero']
+
+    def __str__(self):
+        return f"Semana {self.numero} - R$ {self.valor}"

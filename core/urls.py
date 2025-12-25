@@ -22,5 +22,11 @@ urlpatterns = [
     path('financas/cartao/novo/', views.cartao_novo, name='cartao_novo'),
     path('financas/cartao/despesa/nova/', views.despesa_cartao_nova, name='despesa_cartao_nova'),
     path('financas/ativo/novo/', views.ativo_novo, name='ativo_novo'),
-    path('financas/ativo/operacao/', views.operacao_nova, name='operacao_nova'),     
+    path('financas/ativo/operacao/', views.operacao_nova, name='operacao_nova'),  
+    path('financas/cartao/despesa/editar/<int:id>/', views.despesa_cartao_editar, name='despesa_cartao_editar'),
+    path('financas/cartao/despesa/deletar/<int:id>/', views.despesa_cartao_deletar, name='despesa_cartao_deletar'),
+    path('financas/ativo/operacao/editar/<int:id>/', views.operacao_editar, name='operacao_editar'),
+    path('financas/ativo/operacao/deletar/<int:id>/', views.operacao_deletar, name='operacao_deletar'),   
+    path('financas/cartao/deletar/<int:id>/', views.cartao_deletar, name='cartao_deletar'),
+    path('financas/ativo/deletar/<int:id>/', views.ativo_deletar, name='ativo_deletar'),
 ]

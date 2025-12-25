@@ -94,9 +94,17 @@
             <div class="col-md-6 mb-4">
                 <div class="card card-dashboard shadow h-100 border-start border-primary border-5">
                     <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h5 class="font-weight-bold text-primary mb-0">{{ cartao.nome }}</h5>
-                            <span class="badge bg-primary">Vence dia {{ cartao.dia_vencimento }}</span>
+                        
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <h5 class="font-weight-bold text-primary mb-0">{{ cartao.nome }}</h5>
+                                <span class="badge bg-primary">Vence dia {{ cartao.dia_vencimento }}</span>
+                            </div>
+                            <a href="{% url 'cartao_deletar' cartao.id %}" class="text-danger opacity-50 hover-opacity-100" 
+                               onclick="return confirm('Tem certeza? Isso apagará o cartão e TODAS as compras dele.')" 
+                               title="Excluir Cartão">
+                                <i class="bi bi-trash-fill"></i>
+                            </a>
                         </div>
                         
                         <div class="mb-3">
@@ -118,6 +126,54 @@
                             <div class="col-6">
                                 <small class="text-uppercase text-secondary fw-bold" style="font-size: 0.7rem;">Disponível</small>
                                 <div class="h5 fw-bold text-success">R$ {{ cartao.disponivel|floatformat:2 }}</div>
+                            </div>
+                        </div>
+
+                        <div class="d-grid mt-3">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalCartao{{ cartao.id }}">
+                                <i class="bi bi-list-ul"></i> Ver Fatura / Editar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal fade" id="modalCartao{{ cartao.id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title fw-bold">Fatura: {{ cartao.nome }}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Data</th>
+                                            <th>Descrição</th>
+                                            <th>Valor</th>
+                                            <th>Parc.</th>
+                                            <th>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for despesa in cartao.despesas.all %}
+                                        <tr>
+                                            <td>{{ despesa.data_compra|date:"d/m/y" }}</td>
+                                            <td>{{ despesa.descricao }}</td>
+                                            <td class="fw-bold text-danger">R$ {{ despesa.valor }}</td>
+                                            <td>{{ despesa.parcela_atual }}/{{ despesa.parcelas }}</td>
+                                            <td>
+                                                <a href="{% url 'despesa_cartao_editar' despesa.id %}" class="btn btn-sm btn-link text-primary p-0 me-2"><i class="bi bi-pencil"></i></a>
+                                                <a href="{% url 'despesa_cartao_deletar' despesa.id %}" class="btn btn-sm btn-link text-danger p-0" onclick="return confirm('Remover esta compra?')"><i class="bi bi-trash"></i></a>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr><td colspan="5" class="text-center text-muted">Nenhuma compra registrada.</td></tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -150,9 +206,17 @@
             <div class="col-md-4 mb-3">
                 <div class="card card-dashboard shadow-sm h-100">
                     <div class="card-body">
+                        
                         <div class="d-flex justify-content-between">
                             <div>
-                                <h6 class="fw-bold mb-0">{{ ativo.codigo }}</h6>
+                                <h6 class="fw-bold mb-0 d-flex align-items-center">
+                                    {{ ativo.codigo }}
+                                    <a href="{% url 'ativo_deletar' ativo.id %}" class="text-danger ms-2 small" 
+                                       onclick="return confirm('Tem certeza? Isso apagará o ativo e TODO o histórico de operações.')"
+                                       title="Excluir Ativo">
+                                        <i class="bi bi-x-circle-fill"></i>
+                                    </a>
+                                </h6>
                                 <small class="text-muted">{{ ativo.get_tipo_display }}</small>
                             </div>
                             <div class="text-end">
@@ -160,9 +224,60 @@
                                 <small class="text-muted">{{ ativo.quantidade_atual }} cotas</small>
                             </div>
                         </div>
+                        
                         <hr>
                         <div class="d-grid">
-                            <button class="btn btn-sm btn-outline-secondary">Detalhes</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalAtivo{{ ativo.id }}">
+                                <i class="bi bi-clock-history"></i> Histórico / Editar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal fade" id="modalAtivo{{ ativo.id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title fw-bold">Histórico: {{ ativo.codigo }}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-striped align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>Data</th>
+                                            <th>Tipo</th>
+                                            <th>Qtd</th>
+                                            <th>Preço Unit.</th>
+                                            <th>Total</th>
+                                            <th>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for op in ativo.operacoes.all %}
+                                        <tr>
+                                            <td>{{ op.data|date:"d/m/y" }}</td>
+                                            <td>
+                                                {% if op.tipo == 'C' %}<span class="badge bg-success">Compra</span>
+                                                {% elif op.tipo == 'V' %}<span class="badge bg-danger">Venda</span>
+                                                {% else %}<span class="badge bg-warning text-dark">Div.</span>{% endif %}
+                                            </td>
+                                            <td>{{ op.quantidade }}</td>
+                                            <td>R$ {{ op.preco_unitario }}</td>
+                                            <td class="fw-bold">R$ {{ op.valor_total|floatformat:2 }}</td>
+                                            <td>
+                                                <a href="{% url 'operacao_editar' op.id %}" class="btn btn-sm btn-link text-primary p-0 me-2"><i class="bi bi-pencil"></i></a>
+                                                <a href="{% url 'operacao_deletar' op.id %}" class="btn btn-sm btn-link text-danger p-0" onclick="return confirm('Excluir esta operação? O preço médio será recalculado.')"><i class="bi bi-trash"></i></a>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr><td colspan="6" class="text-center text-muted">Nenhuma operação registrada.</td></tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>

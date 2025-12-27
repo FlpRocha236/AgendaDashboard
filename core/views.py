@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 
 # Importação dos Models e Forms
 from .models import Compromisso, Nota, Transacao, CartaoCredito, DespesaCartao, Ativo, OperacaoInvestimento, Desafio, SemanaDesafio
-from .forms import TransacaoForm, CompromissoForm, NotaForm, PerfilForm, CartaoForm, DespesaCartaoForm, AtivoForm, OperacaoInvestimentoForm, DesafioForm
+from .forms import TransacaoForm, CompromissoForm, NotaForm, PerfilForm, CartaoForm, DespesaCartaoForm, AtivoForm, OperacaoInvestimentoForm, DesafioForm, UsuarioRegistroForm
 
 # --- FUNÇÃO AUXILIAR (Helper) ---
 def recalcular_ativo(ativo):
@@ -34,30 +34,74 @@ def recalcular_ativo(ativo):
         ativo.preco_medio = 0
     ativo.save()
 
-# --- DASHBOARD & FINANÇAS ---
+# --- DASHBOARD PRINCIPAL ---
 
 @login_required
 def dashboard(request):
-    # 1. DADOS FINANCEIROS BÁSICOS (KPIs)
+    agora = timezone.now()
+    mes_atual = agora.month
+    ano_atual = agora.year
+
+    # 1. DADOS FINANCEIROS BÁSICOS (Fluxo de Caixa)
     receitas = Transacao.objects.filter(user=request.user, tipo='receita').aggregate(Sum('valor'))['valor__sum'] or 0
-    despesas = Transacao.objects.filter(user=request.user, tipo='despesa').aggregate(Sum('valor'))['valor__sum'] or 0
-    saldo = receitas - despesas
+    despesas_caixa = Transacao.objects.filter(user=request.user, tipo='despesa').aggregate(Sum('valor'))['valor__sum'] or 0
+    
+    # --- CÁLCULO DA FATURA TOTAL DOS CARTÕES (PARA SOMAR NAS DESPESAS) ---
+    fatura_total_cartoes = 0
+    cartoes = CartaoCredito.objects.filter(user=request.user)
+    
+    # Listas para o Gráfico de Cartões
+    labels_cartao = []
+    data_cartao = []
+    colors_cartao = []
+
+    for cartao in cartoes:
+        despesas = DespesaCartao.objects.filter(cartao=cartao)
+        fatura_deste_cartao = 0
+        limite_tomado = 0
+
+        for despesa in despesas:
+            limite_tomado += despesa.valor # Total da dívida para cor da barra
+
+            # Lógica da Parcela Mensal
+            valor_parcela = despesa.valor / despesa.parcelas
+            meses_passados = (ano_atual - despesa.data_compra.year) * 12 + (mes_atual - despesa.data_compra.month)
+            
+            if 0 <= meses_passados < despesa.parcelas:
+                fatura_deste_cartao += valor_parcela
+
+        # Soma ao total geral de despesas
+        fatura_total_cartoes += fatura_deste_cartao
+        
+        # Prepara dados para o Gráfico
+        labels_cartao.append(cartao.nome)
+        data_cartao.append(float(fatura_deste_cartao)) # <--- Agora exibe a Fatura, não o Total
+        
+        # Define a cor baseada no LIMITE (ainda é útil ver se o cartão está estourado)
+        uso = (limite_tomado / cartao.limite) * 100 if cartao.limite > 0 else 0
+        if uso > 80:
+            colors_cartao.append('#e74a3b') # Vermelho
+        elif uso > 50:
+            colors_cartao.append('#f6c23e') # Amarelo
+        else:
+            colors_cartao.append('#4e73df') # Azul
+
+    # O "Despesas Mês" agora é: Gastos em Dinheiro + Fatura dos Cartões
+    total_despesas = despesas_caixa + fatura_total_cartoes
+    saldo = receitas - total_despesas
 
     # 2. DADOS PARA O GRÁFICO DE APORTES (INVESTIMENTOS)
-    data_limite = timezone.now().date() - timedelta(days=180) # Últimos 6 meses
-    
+    data_limite = agora.date() - timedelta(days=180)
     aportes = OperacaoInvestimento.objects.filter(
         ativo__user=request.user, 
         tipo='C', 
         data__gte=data_limite
     ).order_by('data')
 
-    # Agrupando por mês
     aportes_mes = {}
     for aporte in aportes:
         mes_ano = aporte.data.strftime("%b/%y")
         valor = (aporte.quantidade * aporte.preco_unitario) + aporte.taxas
-        
         if mes_ano in aportes_mes:
             aportes_mes[mes_ano] += float(valor)
         else:
@@ -66,41 +110,18 @@ def dashboard(request):
     labels_invest = list(aportes_mes.keys())
     data_invest = list(aportes_mes.values())
 
-    # 3. DADOS PARA O GRÁFICO DE CARTÕES
-    cartoes = CartaoCredito.objects.filter(user=request.user)
-    labels_cartao = []
-    data_cartao = []
-    colors_cartao = []
-
-    for cartao in cartoes:
-        gasto = DespesaCartao.objects.filter(cartao=cartao).aggregate(Sum('valor'))['valor__sum'] or 0
-        
-        labels_cartao.append(cartao.nome)
-        data_cartao.append(float(gasto))
-        
-        # Define cor baseada no uso do limite
-        uso = (gasto / cartao.limite) * 100 if cartao.limite > 0 else 0
-        if uso > 80:
-            colors_cartao.append('#e74a3b') # Vermelho
-        elif uso > 50:
-            colors_cartao.append('#f6c23e') # Amarelo
-        else:
-            colors_cartao.append('#4e73df') # Azul
-
-    # 4. AGENDA E NOTAS
-    agora = timezone.now()
+    # 3. AGENDA E NOTAS
     proximos_compromissos = Compromisso.objects.filter(
         user=request.user, data_hora__gte=agora, concluido=False
     ).order_by('data_hora')[:3]
-    
     notas = Nota.objects.filter(user=request.user).order_by('-atualizado_em')[:2]
 
-    # 5. DESAFIO ATIVO (NOVO: Adicionado aqui!)
+    # 4. DESAFIO ATIVO
     desafio_ativo = Desafio.objects.filter(user=request.user, concluido=False).first()
 
     context = {
         'receitas': receitas,
-        'despesas': despesas,
+        'despesas': total_despesas, # <--- Agora inclui os cartões!
         'saldo': saldo,
         'compromissos': proximos_compromissos,
         'notas': notas,
@@ -109,38 +130,74 @@ def dashboard(request):
         'labels_cartao': labels_cartao,
         'data_cartao': data_cartao,
         'colors_cartao': colors_cartao,
-        'desafio_ativo': desafio_ativo, # Enviando para o template
+        'desafio_ativo': desafio_ativo,
     }
     return render(request, 'dashboard.html', context)
 
+# --- FINANÇAS (FLUXO E CARTÕES) ---
+
 @login_required
 def financas(request):
-    # 1. Fluxo de Caixa
+    # 1. Fluxo de Caixa (Transações normais)
     transacoes = Transacao.objects.filter(user=request.user).order_by('-data')
 
-    # 2. Cartões de Crédito
+    # 2. Cartões de Crédito (Lógica da Fatura Mensal)
     cartoes = CartaoCredito.objects.filter(user=request.user)
+    
+    agora = timezone.now()
+    mes_atual = agora.month
+    ano_atual = agora.year
+
     for cartao in cartoes:
-        total_gasto = DespesaCartao.objects.filter(cartao=cartao).aggregate(Sum('valor'))['valor__sum'] or 0
-        cartao.total_gasto = total_gasto
-        cartao.disponivel = cartao.limite - total_gasto
+        despesas = DespesaCartao.objects.filter(cartao=cartao)
+        fatura_mes = 0 # Valor que será pago neste mês
+        total_divida = 0 # Valor total comprometido (limite usado)
+
+        for despesa in despesas:
+            # Calcula o valor total usado do limite
+            total_divida += despesa.valor 
+
+            # --- LÓGICA DA PARCELA MENSAL ---
+            # 1. Qual o valor da parcela?
+            valor_parcela = despesa.valor / despesa.parcelas
+            
+            # 2. Calcular quantos meses se passaram desde a compra até hoje
+            # Ex: Comprou em Janeiro, estamos em Março = passaram 2 meses
+            meses_passados = (ano_atual - despesa.data_compra.year) * 12 + (mes_atual - despesa.data_compra.month)
+            
+            # 3. Ajuste do Dia de Fechamento (Opcional, mas preciso)
+            # Se a compra foi feita DEPOIS do fechamento, ela pula pro próximo mês
+            # Vamos simplificar: Se meses_passados for menor que o total de parcelas, a conta existe.
+            if 0 <= meses_passados < despesa.parcelas:
+                fatura_mes += valor_parcela
         
+        # Atribui os valores calculados ao objeto cartão para usar no HTML
+        cartao.fatura_atual = fatura_mes
+        cartao.total_gasto = total_divida # Limite tomado total
+        cartao.disponivel = cartao.limite - total_divida
+        
+        # Barra de progresso (baseada no limite total tomado)
         if cartao.limite > 0:
-            cartao.porcentagem_uso = (total_gasto / cartao.limite) * 100
+            cartao.porcentagem_uso = (total_divida / cartao.limite) * 100
         else:
             cartao.porcentagem_uso = 0
-
-    # 3. Investimentos
-    ativos = Ativo.objects.filter(user=request.user)
-    total_investido = sum(a.total_investido() for a in ativos)
 
     context = {
         'transacoes': transacoes,
         'cartoes': cartoes,
-        'ativos': ativos,
-        'total_investido': total_investido
     }
     return render(request, 'financas.html', context)
+
+@login_required
+def investimentos_dashboard(request):
+    ativos = Ativo.objects.filter(user=request.user)
+    total_investido = sum(a.total_investido() for a in ativos)
+    
+    context = {
+        'ativos': ativos,
+        'total_investido': total_investido,
+    }
+    return render(request, 'investimentos.html', context)
 
 # --- AGENDA & NOTAS (Listas) ---
 
@@ -220,6 +277,13 @@ def agenda_deletar(request, id):
     comp.delete()
     return redirect('agenda')
 
+@login_required
+def compromisso_concluir(request, id):
+    comp = get_object_or_404(Compromisso, pk=id, user=request.user)
+    comp.concluido = not comp.concluido 
+    comp.save()
+    return redirect(request.META.get('HTTP_REFERER', 'dashboard'))
+
 # --- CRUD NOTAS ---
 
 @login_required
@@ -298,6 +362,13 @@ def cartao_novo(request):
     return render(request, 'form_generico.html', {'form': form, 'titulo': 'Novo Cartão de Crédito'})
 
 @login_required
+def cartao_deletar(request, id):
+    cartao = get_object_or_404(CartaoCredito, pk=id)
+    if cartao.user == request.user:
+        cartao.delete()
+    return redirect('financas')
+
+@login_required
 def despesa_cartao_nova(request):
     if request.method == 'POST':
         form = DespesaCartaoForm(request.POST)
@@ -330,14 +401,6 @@ def despesa_cartao_deletar(request, id):
         despesa.delete()
     return redirect('financas')
 
-@login_required
-def cartao_deletar(request, id):
-    cartao = get_object_or_404(CartaoCredito, pk=id)
-    # Segurança: Só deleta se o cartão for do usuário logado
-    if cartao.user == request.user:
-        cartao.delete()
-    return redirect('financas')
-
 # --- CRUD INVESTIMENTOS ---
 
 @login_required
@@ -348,10 +411,19 @@ def ativo_novo(request):
             ativo = form.save(commit=False)
             ativo.user = request.user
             ativo.save()
-            return redirect('financas')
+            # AGORA REDIRECIONA PARA INVESTIMENTOS
+            return redirect('investimentos_dashboard')
     else:
         form = AtivoForm()
     return render(request, 'form_generico.html', {'form': form, 'titulo': 'Novo Ativo Financeiro'})
+
+@login_required
+def ativo_deletar(request, id):
+    ativo = get_object_or_404(Ativo, pk=id)
+    if ativo.user == request.user:
+        ativo.delete()
+    # AGORA REDIRECIONA PARA INVESTIMENTOS
+    return redirect('investimentos_dashboard')
 
 @login_required
 def operacao_nova(request):
@@ -360,14 +432,14 @@ def operacao_nova(request):
         if form.is_valid():
             operacao = form.save(commit=False)
             
-            # Segurança: verificar se o ativo pertence ao usuário
             if operacao.ativo.user != request.user:
-                return redirect('financas')
+                return redirect('investimentos_dashboard')
             
             operacao.save()
-            recalcular_ativo(operacao.ativo) # <--- Uso da função auxiliar
-
-            return redirect('financas')
+            recalcular_ativo(operacao.ativo)
+            
+            # AGORA REDIRECIONA PARA INVESTIMENTOS
+            return redirect('investimentos_dashboard')
     else:
         form = OperacaoInvestimentoForm()
         form.fields['ativo'].queryset = Ativo.objects.filter(user=request.user)
@@ -377,14 +449,15 @@ def operacao_nova(request):
 @login_required
 def operacao_editar(request, id):
     operacao = get_object_or_404(OperacaoInvestimento, pk=id)
-    if operacao.ativo.user != request.user: return redirect('financas')
+    if operacao.ativo.user != request.user: return redirect('investimentos_dashboard')
 
     if request.method == 'POST':
         form = OperacaoInvestimentoForm(request.POST, instance=operacao)
         if form.is_valid():
             operacao = form.save()
-            recalcular_ativo(operacao.ativo) # Recalcula saldo após editar
-            return redirect('financas')
+            recalcular_ativo(operacao.ativo) 
+            # AGORA REDIRECIONA PARA INVESTIMENTOS
+            return redirect('investimentos_dashboard')
     else:
         form = OperacaoInvestimentoForm(instance=operacao)
     return render(request, 'form_generico.html', {'form': form, 'titulo': 'Editar Operação'})
@@ -395,16 +468,9 @@ def operacao_deletar(request, id):
     ativo = operacao.ativo
     if ativo.user == request.user:
         operacao.delete()
-        recalcular_ativo(ativo) # Recalcula saldo após deletar
-    return redirect('financas')
-
-@login_required
-def ativo_deletar(request, id):
-    ativo = get_object_or_404(Ativo, pk=id)
-    # Segurança: Só deleta se o ativo for do usuário logado
-    if ativo.user == request.user:
-        ativo.delete()
-    return redirect('financas')
+        recalcular_ativo(ativo) 
+    # AGORA REDIRECIONA PARA INVESTIMENTOS
+    return redirect('investimentos_dashboard')
 
 # --- MÓDULO DE DESAFIOS & METAS ---
 
@@ -422,7 +488,6 @@ def desafio_novo(request):
             desafio.user = request.user
             desafio.save()
 
-            # --- GERAÇÃO AUTOMÁTICA DAS SEMANAS ---
             valor_atual = desafio.valor_inicial
             data_atual = desafio.data_inicio
             
@@ -433,10 +498,8 @@ def desafio_novo(request):
                     data_prevista=data_atual,
                     valor=valor_atual
                 )
-                # Prepara próxima semana
                 valor_atual += desafio.incremento
                 data_atual += timedelta(days=7)
-            # --------------------------------------
 
             return redirect('desafios_lista')
     else:
@@ -447,7 +510,7 @@ def desafio_novo(request):
 def desafio_pagar_semana(request, id):
     semana = get_object_or_404(SemanaDesafio, pk=id)
     if semana.desafio.user == request.user:
-        semana.pago = not semana.pago # Alterna entre pago e não pago (toggle)
+        semana.pago = not semana.pago 
         semana.data_pagamento = timezone.now() if semana.pago else None
         semana.save()
     return redirect('desafios_lista')
@@ -458,3 +521,19 @@ def desafio_excluir(request, id):
     if desafio.user == request.user:
         desafio.delete()
     return redirect('desafios_lista')
+
+# --- CADASTRO DE USUÁRIOS ---
+
+def registrar_usuario(request):
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+
+    if request.method == 'POST':
+        form = UsuarioRegistroForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Conta criada com sucesso! Faça login.')
+            return redirect('login')
+    else:
+        form = UsuarioRegistroForm()
+    return render(request, 'registration/register.html', {'form': form})

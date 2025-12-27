@@ -2,8 +2,7 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Personal OS{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"> <title>{% block title %}My OS{% endblock %}</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -11,52 +10,94 @@
 
     <style>
         :root { --primary-color: #4e73df; --secondary-color: #858796; --bg-color: #f8f9fc; --sidebar-width: 250px; }
-        body { font-family: 'Nunito', sans-serif; background-color: var(--bg-color); overflow-x: hidden; }
+        body { font-family: 'Nunito', sans-serif; background-color: var(--bg-color); overflow-x: hidden; display: flex; flex-direction: column; min-height: 100vh; }
         
         /* Sidebar */
-        .sidebar { width: var(--sidebar-width); height: 100vh; position: fixed; left: 0; top: 0; background: linear-gradient(180deg, #4e73df 10%, #224abe 100%); color: white; padding-top: 20px; z-index: 1000; }
-        .sidebar .nav-link { color: rgba(255,255,255,0.8); padding: 15px 20px; display: flex; align-items: center; }
-        .sidebar .nav-link:hover, .sidebar .nav-link.active { color: white; background: rgba(255,255,255,0.1); font-weight: bold; }
+        .sidebar { width: var(--sidebar-width); height: 100vh; position: fixed; left: 0; top: 0; background: linear-gradient(180deg, #4e73df 10%, #224abe 100%); color: white; padding-top: 20px; z-index: 1000; overflow-y: auto; }
+        .sidebar .nav-link { color: rgba(255,255,255,0.8); padding: 15px 20px; display: flex; align-items: center; transition: 0.2s; }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active { color: white; background: rgba(255,255,255,0.1); font-weight: bold; border-left: 4px solid white; }
         .sidebar .nav-link i { margin-right: 10px; font-size: 1.2rem; }
-        .sidebar-brand { padding: 20px; font-size: 1.5rem; font-weight: 800; text-align: center; color: white; text-decoration: none; display: block; }
+        .sidebar-brand { padding: 20px; font-size: 1.5rem; font-weight: 800; text-align: center; color: white; text-decoration: none; display: block; margin-bottom: 20px; }
         
         /* Main Content */
-        .main-content { margin-left: var(--sidebar-width); padding: 30px; }
+        .main-content { margin-left: var(--sidebar-width); padding: 30px; flex: 1; }
         
-        /* Estilos Globais de Card */
-        .card-dashboard { border: none; border-radius: 15px; background: white; box-shadow: 0 .15rem 1.75rem 0 rgba(58,59,69,.15); }
+        /* Cards */
+        .card-dashboard { border: none; border-radius: 15px; background: white; box-shadow: 0 .15rem 1.75rem 0 rgba(58,59,69,.15); transition: transform 0.2s; }
+        .card-dashboard:hover { transform: translateY(-3px); }
+
+        /* Footer */
+        footer { background: white; padding: 20px 0; text-align: center; color: var(--secondary-color); font-size: 0.9rem; margin-top: auto; border-top: 1px solid #e3e6f0; width: 100%; margin-left: var(--sidebar-width); width: calc(100% - var(--sidebar-width)); }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .sidebar { width: 100%; height: auto; position: relative; padding-bottom: 20px; }
+            .main-content { margin-left: 0; }
+            footer { margin-left: 0; width: 100%; }
+        }
     </style>
     {% block head_extra %}{% endblock %}
 </head>
 <body>
 
+    {% if user.is_authenticated %}
     <nav class="sidebar">
-        <a href="{% url 'dashboard' %}" class="sidebar-brand"><i class="bi bi-grid-1x2-fill"></i> My OS</a>
-        <hr style="border-color: rgba(255,255,255,0.2);">
+        <a href="{% url 'dashboard' %}" class="sidebar-brand">
+            <i class="bi bi-cpu-fill"></i> My OS
+        </a>
+        
         <div class="nav flex-column">
+            <small class="text-uppercase text-white-50 fw-bold px-3 mb-2" style="font-size: 0.7rem;">Principal</small>
             <a href="{% url 'dashboard' %}" class="nav-link"><i class="bi bi-speedometer2"></i> Dashboard</a>
-            <a href="{% url 'agenda' %}" class="nav-link"><i class="bi bi-calendar-event"></i> Agenda</a>
-            <a href="{% url 'financas' %}" class="nav-link"><i class="bi bi-wallet2"></i> Finanças</a>
+            <a href="{% url 'agenda' %}" class="nav-link"><i class="bi bi-calendar-check"></i> Agenda</a>
+            <a href="{% url 'notas' %}" class="nav-link"><i class="bi bi-sticky"></i> Anotações</a>
+
+            <small class="text-uppercase text-white-50 fw-bold px-3 mt-4 mb-2" style="font-size: 0.7rem;">Financeiro</small>
+            <a href="{% url 'financas' %}" class="nav-link"><i class="bi bi-wallet2"></i> Fluxo & Cartões</a>
+            <a href="{% url 'investimentos_dashboard' %}" class="nav-link"><i class="bi bi-graph-up-arrow"></i> Investimentos</a>
+            <a href="{% url 'desafios_lista' %}" class="nav-link"><i class="bi bi-trophy"></i> Metas & Desafios</a>
             
-            <a href="{% url 'desafios_lista' %}" class="nav-link"><i class="bi bi-trophy-fill"></i> Desafios / Metas</a>
-            
-            <a href="{% url 'notas' %}" class="nav-link"><i class="bi bi-journal-text"></i> Anotações</a>
-            
-            <a href="{% url 'configuracoes' %}" class="nav-link mt-5"><i class="bi bi-gear"></i> Configurações</a>
+            <small class="text-uppercase text-white-50 fw-bold px-3 mt-4 mb-2" style="font-size: 0.7rem;">Sistema</small>
+            <a href="{% url 'configuracoes' %}" class="nav-link"><i class="bi bi-gear"></i> Configurações</a>
             
             <form action="{% url 'logout' %}" method="post" id="logout-form" style="display: none;">
                 {% csrf_token %}
             </form>
-            <a href="#" class="nav-link" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
+            <a href="#" class="nav-link mt-3 text-danger" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
                 <i class="bi bi-box-arrow-left"></i> Sair
             </a>
         </div>
     </nav>
+    {% endif %}
 
     <div class="main-content">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
         {% block content %}
         {% endblock %}
     </div>
+
+    {% if user.is_authenticated %}
+    <footer>
+        <div class="container my-auto">
+            <div class="copyright text-center my-auto">
+                <span>Desenvolvido por <strong>FR Software Developer</strong> &copy; {% now "Y" %}</span>
+                <div class="mt-2">
+                    <a href="#" class="text-secondary me-2"><i class="bi bi-linkedin"></i></a>
+                    <a href="#" class="text-secondary me-2"><i class="bi bi-github"></i></a>
+                    <a href="#" class="text-secondary"><i class="bi bi-envelope"></i></a>
+                </div>
+            </div>
+        </div>
+    </footer>
+    {% endif %}
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     {% block scripts_extra %}{% endblock %}

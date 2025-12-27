@@ -132,18 +132,27 @@
                             <h6 class="text-uppercase text-secondary small fw-bold mb-3">Próximos Compromissos</h6>
                             <div class="list-group list-group-flush">
                                 {% for item in compromissos %}
-                                    <div class="list-group-item px-0 py-2 border-0 d-flex align-items-center">
-                                        <div class="me-3 text-center border rounded p-1 bg-light" style="min-width: 45px;">
-                                            <small class="d-block fw-bold text-secondary" style="font-size: 0.6rem;">{{ item.data_hora|date:"M"|upper }}</small>
-                                            <span class="fw-bold text-dark">{{ item.data_hora|date:"d" }}</span>
+                                    <div class="list-group-item px-0 py-2 border-0 d-flex align-items-center justify-content-between">
+                                        <div class="d-flex align-items-center">
+                                            <div class="me-3 text-center border rounded p-1 bg-light" style="min-width: 45px;">
+                                                <small class="d-block fw-bold text-secondary" style="font-size: 0.6rem;">{{ item.data_hora|date:"M"|upper }}</small>
+                                                <span class="fw-bold text-dark">{{ item.data_hora|date:"d" }}</span>
+                                            </div>
+                                            
+                                            <div>
+                                                <div class="fw-bold text-dark small" style="{% if item.concluido %}text-decoration: line-through; color: #ccc!important;{% endif %}">
+                                                    {{ item.titulo }}
+                                                </div>
+                                                <small class="text-muted">{{ item.data_hora|date:"H:i" }}</small>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <div class="fw-bold text-dark small">{{ item.titulo }}</div>
-                                            <small class="text-muted">{{ item.data_hora|date:"H:i" }}</small>
-                                        </div>
+
+                                        <a href="{% url 'compromisso_concluir' item.id %}" class="btn btn-sm btn-outline-success rounded-circle" style="width: 30px; height: 30px; padding: 0; display: flex; align-items: center; justify-content: center;" title="Concluir">
+                                            <i class="bi bi-check-lg"></i>
+                                        </a>
                                     </div>
                                 {% empty %}
-                                    <p class="text-muted small">Agenda livre.</p>
+                                    <p class="text-muted small">Agenda livre!</p>
                                 {% endfor %}
                             </div>
                         </div>
@@ -203,7 +212,7 @@
         data: {
             labels: {{ labels_cartao|safe }},
             datasets: [{
-                label: 'Fatura Atual (R$)',
+                label: 'Fatura deste Mês (R$)', 
                 data: {{ data_cartao|safe }},
                 backgroundColor: {{ colors_cartao|safe }}, 
                 borderRadius: 5,
@@ -212,7 +221,24 @@
         options: {
             indexAxis: 'y', 
             maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            plugins: { 
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            // Formata para R$ no tooltip
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed.x !== null) {
+                                label += new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(context.parsed.x);
+                            }
+                            return label;
+                        }
+                    }
+                }
+            },
             scales: { x: { beginAtZero: true } }
         }
     });

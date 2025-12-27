@@ -22,7 +22,7 @@ class Nota(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     titulo = models.CharField(max_length=200)
     conteudo = models.TextField()
-    cor = models.CharField(max_length=20, default='white')
+    cor = models.CharField(max_length=20, default='#ffffff') # Ajustado para hex
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
@@ -71,8 +71,11 @@ class CartaoCredito(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     nome = models.CharField(max_length=50, help_text="Ex: Nubank, Visa Platinum")
     limite = models.DecimalField(max_digits=10, decimal_places=2)
-    dia_fechamento = models.IntegerField(help_text="Dia que a fatura fecha (1-31)")
+    dia_fechamento = models.IntegerField(help_text="Dia que a fatura fecha (1-31)", default=1)
     dia_vencimento = models.IntegerField(help_text="Dia que a fatura vence (1-31)")
+    
+    # --- NOVO CAMPO ADICIONADO ---
+    cor_cartao = models.CharField(max_length=7, default='#4e73df', verbose_name="Cor do Cartão")
     
     def __str__(self):
         return self.nome
@@ -84,7 +87,7 @@ class DespesaCartao(models.Model):
     data_compra = models.DateField()
     categoria = models.CharField(max_length=20, choices=Transacao.CATEGORIA_CHOICES, default='outros')
     
-    # Controle de Parcelas (Opcional, mas profissional)
+    # Controle de Parcelas
     parcelas = models.IntegerField(default=1, verbose_name="Qtde Parcelas")
     parcela_atual = models.IntegerField(default=1)
 
@@ -107,8 +110,11 @@ class Ativo(models.Model):
     codigo = models.CharField(max_length=20, help_text="Ex: PETR4, HGLG11, CDB Banco X")
     tipo = models.CharField(max_length=20, choices=TIPO_ATIVO)
     
-    # Campos calculados (cache) para não processar tudo toda hora
-    quantidade_atual = models.DecimalField(max_digits=15, decimal_places=8, default=0) # 8 casas p/ Crypto
+    # --- NOVO CAMPO ADICIONADO ---
+    setor = models.CharField(max_length=50, blank=True, null=True, help_text="Ex: Bancos, Logística, Tecnologia")
+    
+    # Campos calculados (cache)
+    quantidade_atual = models.DecimalField(max_digits=15, decimal_places=8, default=0) 
     preco_medio = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     
     def __str__(self):
@@ -133,7 +139,7 @@ class OperacaoInvestimento(models.Model):
     
     def valor_total(self):
         if self.tipo == 'D':
-            return self.preco_unitario # No caso de dividendo, é o valor recebido
+            return self.preco_unitario 
         return (self.quantidade * self.preco_unitario) + self.taxas
 
     def __str__(self):
@@ -149,7 +155,6 @@ class Desafio(models.Model):
     concluido = models.BooleanField(default=False)
 
     def total_planejado(self):
-        # Soma de Progressão Aritmética: (a1 + an) * n / 2
         valor_final = self.valor_inicial + ((self.duracao_semanas - 1) * self.incremento)
         return (self.valor_inicial + valor_final) * self.duracao_semanas / 2
 

@@ -1,130 +1,145 @@
 import yfinance as yf
+import requests
+import pandas as pd
+from io import StringIO
 from .models import Ativo, AnaliseBot
 
-# --- LISTA DE ATIVOS PARA O RADAR (Você pode adicionar mais) ---
-TICKERS_RADAR = [
-    # Ações Fortes
-    ('WEGE3.SA', 'ACAO'), ('PETR4.SA', 'ACAO'), ('VALE3.SA', 'ACAO'),
-    ('BBAS3.SA', 'ACAO'), ('ITSA4.SA', 'ACAO'), ('MGLU3.SA', 'ACAO'),
-    ('PSSA3.SA', 'ACAO'), ('EGIE3.SA', 'ACAO'), ('TAEE11.SA', 'ACAO'),
-    # FIIs Populares
-    ('MXRF11.SA', 'FII'), ('HGLG11.SA', 'FII'), ('XPLG11.SA', 'FII'),
-    ('VISC11.SA', 'FII'), ('KNRI11.SA', 'FII'),
-    # Cripto
-    ('BTC-BRL', 'CRIPTO'), ('ETH-BRL', 'CRIPTO')
-]
-
-def calcular_fundamentos(ticker, tipo, info):
-    """
-    Função auxiliar que aplica a matemática de Graham/Bazin.
-    Retorna um dicionário com os dados processados.
-    """
-    preco = info.get('currentPrice', 0) or info.get('regularMarketPrice', 0)
-    score = 0
-    recomendacao = "NEUTRO"
-    detalhes = {}
-
-    if tipo == 'ACAO':
-        pl = info.get('trailingPE', 0) or 0
-        pvp = info.get('priceToBook', 0) or 0
-        dy = (info.get('dividendYield', 0) or 0) * 100
-        roe = (info.get('returnOnEquity', 0) or 0) * 100
-        divida = info.get('debtToEquity', 0) / 100 if info.get('debtToEquity') else 0
-        
-        c_dy = dy >= 6.0
-        c_pl = 0 < pl <= 15.0
-        c_pvp = 0 < pvp <= 1.5
-        c_roe = roe >= 10.0
-        c_divida = divida <= 1.5
-        
-        score = sum([c_dy, c_pl, c_pvp, c_roe, c_divida])
-        detalhes = {'pl': pl, 'pvp': pvp, 'dy': dy, 'roe': roe}
-
-    elif tipo == 'FII':
-        dy = (info.get('dividendYield', 0) or 0) * 100
-        pvp = info.get('priceToBook', 0) or 0
-        
-        c_dy = dy >= 8.0
-        c_pvp = 0.8 <= pvp <= 1.10
-        
-        if c_dy and c_pvp: score = 5
-        elif c_dy: score = 3
-        else: score = 1
-        
-        detalhes = {'dy': dy, 'pvp': pvp}
-
-    elif tipo == 'CRIPTO':
-        # Cripto no Radar é apenas informativo de preço, pois depende de % na carteira
-        score = 3 
-        recomendacao = "NEUTRO (Verificar % na Carteira)"
-        detalhes = {}
-
-    # Define Recomendação baseada no Score (Para Ações e FIIs)
-    if tipo != 'CRIPTO':
-        if score >= 4: recomendacao = "COMPRA FORTE"
-        elif score == 3: recomendacao = "OBSERVAR"
-        else: recomendacao = "AGUARDAR / CARO"
-
+# --- 1. CONFIGURAÇÃO DE DISFARCE (User-Agent) ---
+def get_headers():
     return {
-        'ticker': ticker.replace('.SA', '').replace('-BRL', ''),
-        'tipo': tipo,
-        'preco': preco,
-        'score': score,
-        'recomendacao': recomendacao,
-        'detalhes': detalhes
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
 
-# --- FUNÇÃO 1: ANALISA SUA CARTEIRA (Já existente) ---
+# --- 2. FUNÇÃO DE ANÁLISE DA CARTEIRA (Mantida igual, usando Yahoo) ---
 def executar_analise_carteira(user):
     ativos = Ativo.objects.filter(user=user)
     total_patrimonio = sum(a.total_investido() for a in ativos)
     
+    session = requests.Session()
+    session.headers.update(get_headers())
+
     for ativo in ativos:
+        # Prepara ticker para o Yahoo
         if ativo.tipo == 'CRIPTO': ticker_yf = f"{ativo.ticker}-BRL"
         elif ativo.ticker.endswith('.SA'): ticker_yf = ativo.ticker
         else: ticker_yf = f"{ativo.ticker}.SA"
 
         try:
-            stock = yf.Ticker(ticker_yf)
-            dados = calcular_fundamentos(ticker_yf, ativo.tipo, stock.info)
+            stock = yf.Ticker(ticker_yf, session=session)
             
-            # Sobrescreve lógica de Cripto para usar % da carteira
-            if ativo.tipo == 'CRIPTO':
-                percentual = (ativo.total_investido() / total_patrimonio * 100) if total_patrimonio > 0 else 0
-                if percentual < 4: dados['score'], dados['recomendacao'] = 5, "COMPRAR (Abaixo da Meta)"
-                elif percentual > 7: dados['score'], dados['recomendacao'] = 1, "VENDER (Acima da Meta)"
-                else: dados['score'], dados['recomendacao'] = 3, "MANTER"
+            # Tenta pegar info de forma segura
+            try:
+                info = stock.info
+            except:
+                continue 
 
-            # Salva no Banco
+            # Normalização de dados para carteira pessoal (Yahoo)
+            preco = info.get('currentPrice') or info.get('regularMarketPrice') or 0
+            score = 0
+            recomendacao = "NEUTRO"
+            
+            # Lógica Simplificada para Carteira
+            if ativo.tipo == 'ACAO' or ativo.tipo == 'FII':
+                dy = (info.get('dividendYield', 0) or 0) * 100
+                pvp = info.get('priceToBook', 0) or 0
+                pl = info.get('trailingPE', 0) or 0
+                
+                # Critério básico visual
+                if dy > 6 and 0 < pvp < 1.5: score = 5; recomendacao = "COMPRAR"
+                elif dy > 4: score = 3; recomendacao = "MANTER"
+                else: score = 1; recomendacao = "REVISAR"
+                
+                detalhes = {'dy': dy, 'pvp': pvp, 'pl': pl}
+            
+            elif ativo.tipo == 'CRIPTO':
+                percentual = (ativo.total_investido() / total_patrimonio * 100) if total_patrimonio > 0 else 0
+                if percentual < 4: score, recomendacao = 5, "COMPRAR"
+                elif percentual > 7: score, recomendacao = 1, "VENDER"
+                else: score, recomendacao = 3, "MANTER"
+                detalhes = {}
+
+            # Salvar no banco
             AnaliseBot.objects.update_or_create(
                 ativo=ativo,
                 defaults={
-                    'preco_atual': dados['preco'],
-                    'recomendacao': dados['recomendacao'],
-                    'pontuacao': dados['score'],
-                    'pl': dados['detalhes'].get('pl', 0),
-                    'pvp': dados['detalhes'].get('pvp', 0),
-                    'dy': dados['detalhes'].get('dy', 0),
-                    'roe': dados['detalhes'].get('roe', 0)
+                    'preco_atual': preco,
+                    'recomendacao': recomendacao,
+                    'pontuacao': score,
+                    'pl': detalhes.get('pl', 0),
+                    'pvp': detalhes.get('pvp', 0),
+                    'dy': detalhes.get('dy', 0)
                 }
             )
         except Exception as e:
-            print(f"Erro {ativo.ticker}: {e}")
+            print(f"Erro Carteira {ativo.ticker}: {e}")
 
-# --- FUNÇÃO 2: NOVO RADAR DE OPORTUNIDADES ---
+# --- 3. NOVA FUNÇÃO: SCREENER DE MERCADO (FUNDAMENTUS) ---
 def buscar_oportunidades_mercado():
-    sugestoes = []
+    """
+    Acessa o site Fundamentus, baixa TODAS as ações e filtra as melhores.
+    """
+    url = 'https://www.fundamentus.com.br/resultado.php'
     
-    for ticker, tipo in TICKERS_RADAR:
-        try:
-            stock = yf.Ticker(ticker)
-            dados = calcular_fundamentos(ticker, tipo, stock.info)
+    try:
+        # 1. Baixar a tabela bruta do site
+        r = requests.get(url, headers=get_headers())
+        r.raise_for_status()
+        
+        # 2. Ler com Pandas (lxml necessário)
+        df = pd.read_html(StringIO(r.text), decimal=',', thousands='.')[0]
+        
+        # 3. Limpeza de Dados (Transformar texto em número)
+        # Remove % e pontos, troca vírgula por ponto
+        for col in ['Div.Yield', 'Mrg Ebit', 'Mrg. Líq.', 'ROIC', 'ROE', 'Cresc. Rec.5a']:
+            df[col] = df[col].astype(str).str.replace('.', '').str.replace(',', '.').str.replace('%', '')
+            df[col] = pd.to_numeric(df[col], errors='coerce') / 100
+
+        # Liq.2meses e Patr.Liq vem como string com pontos
+        for col in ['Liq.2meses', 'Patrim. Líq']:
+            df[col] = df[col].astype(str).str.replace('.', '').str.replace(',', '.')
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+
+        # 4. APLICAÇÃO DOS FILTROS (A Mágica de Graham/Bazin)
+        # Filtro 1: Liquidez diária > R$ 1 Milhão (pra não pegar micos)
+        df = df[df['Liq.2meses'] > 1000000]
+        
+        # Filtro 2: P/L positivo e barato (entre 0.01 e 15)
+        df = df[(df['P/L'] > 0.01) & (df['P/L'] <= 15)]
+        
+        # Filtro 3: P/VP justo (entre 0.01 e 1.5)
+        df = df[(df['P/VP'] > 0.01) & (df['P/VP'] <= 1.5)]
+        
+        # Filtro 4: Dividend Yield > 6% (Estratégia Bazin)
+        df = df[df['Div.Yield'] > 0.06]
+        
+        # Filtro 5: ROE > 10% (Empresas eficientes)
+        df = df[df['ROE'] > 0.10]
+
+        # 5. RANKING FINAL
+        # Ordenar pelo maior Dividend Yield
+        df = df.sort_values(by='Div.Yield', ascending=False)
+        
+        # Pega as TOP 20
+        top_20 = df.head(20)
+        
+        # 6. Formata para enviar ao Template HTML
+        resultados = []
+        for index, row in top_20.iterrows():
+            resultados.append({
+                'ticker': row['Papel'],
+                'tipo': 'ACAO', # Fundamentus mistura Ações e FIIs, mas a maioria aqui será Ação
+                'preco': float(row['Cotação']) / 100 if float(row['Cotação']) > 1000 else float(row['Cotação']), # Ajuste fino se necessário
+                'score': 5, # Se passou no filtro acima, é nota 5
+                'detalhes': {
+                    'dy': row['Div.Yield'] * 100,
+                    'pl': row['P/L'],
+                    'pvp': row['P/VP'],
+                    'roe': row['ROE'] * 100
+                }
+            })
             
-            # Só adiciona na lista se for uma BOA oportunidade (Score >= 4)
-            if dados['score'] >= 4:
-                sugestoes.append(dados)
-                
-        except Exception as e:
-            print(f"Erro Radar {ticker}: {e}")
-            
-    return sugestoes
+        return resultados
+
+    except Exception as e:
+        print(f"Erro no Screener Fundamentus: {e}")
+        return []

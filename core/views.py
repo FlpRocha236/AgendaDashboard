@@ -7,6 +7,7 @@ from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import PasswordChangeForm
 from datetime import datetime, timedelta
 from .health_logic import gerar_diagnostico_financeiro
+from .bot_logic import executar_analise_carteira, buscar_oportunidades_mercado
 
 # Importação dos Models e Forms
 from .models import (
@@ -656,3 +657,15 @@ def saude_financeira(request):
         'msg_score': msg_score
     }
     return render(request, 'saude_financeira.html', context)
+
+@login_required
+def radar_mercado(request):
+    """
+    Varre o mercado e retorna apenas as TOP oportunidades
+    """
+    oportunidades = buscar_oportunidades_mercado()
+    
+    context = {
+        'oportunidades': oportunidades
+    }
+    return render(request, 'radar_mercado.html', context)

@@ -32,8 +32,9 @@ urlpatterns = [
 
     # --- MÓDULO INVESTIMENTOS (Novo & Separado) ---
     path('investimentos/', views.investimentos_dashboard, name='investimentos_dashboard'),
-    path('investimentos/bot/executar/', views.bot_executar, name='bot_executar'), 
-    # <--- NOVA HOME
+    path('investimentos/bot/executar/', views.bot_executar, name='bot_executar'),
+    path('investimentos/radar/', views.radar_mercado, name='radar_mercado'), 
+
     
     # Ativos (Ações, FIIs, etc)
     path('investimentos/ativo/novo/', views.ativo_novo, name='ativo_novo'),

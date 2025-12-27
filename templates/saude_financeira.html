@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+
+{% block title %}Saúde Financeira - Diagnóstico{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h1 class="h3 text-gray-800 fw-bold">Diagnóstico Financeiro</h1>
+    <span class="text-secondary">Análise baseada nos seus dados dos últimos 30 dias.</span>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow border-0">
+            <div class="card-body text-center py-5">
+                <h5 class="text-uppercase text-secondary fw-bold mb-3">Seu Score Financeiro</h5>
+                
+                <div class="d-inline-block position-relative">
+                    <div style="width: 150px; height: 150px; border-radius: 50%; border: 10px solid {% if cor_score == 'success' %}#1cc88a{% elif cor_score == 'warning' %}#f6c23e{% else %}#e74a3b{% endif %}; display: flex; align-items: center; justify-content: center; margin: 0 auto;">
+                        <span class="display-4 fw-bold text-dark">{{ d.score }}</span>
+                    </div>
+                </div>
+                
+                <h3 class="mt-3 fw-bold text-{{ cor_score }}">{{ msg_score }}</h3>
+                <p class="text-muted w-75 mx-auto">
+                    Baseado na sua capacidade de poupança, pagamento de dívidas em dia e qualidade dos investimentos.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-4 mb-4">
+        <div class="card shadow h-100">
+            <div class="card-header bg-white py-3">
+                <h6 class="m-0 fw-bold text-primary">Indicadores Vitais</h6>
+            </div>
+            <div class="card-body">
+                
+                <div class="mb-4">
+                    <small class="fw-bold text-secondary">Taxa de Poupança (Ideal: >20%)</small>
+                    <div class="d-flex align-items-center">
+                        <div class="progress flex-grow-1 me-2" style="height: 10px;">
+                            <div class="progress-bar bg-info" role="progressbar" style="width: {{ d.taxa_poupanca|stringformat:'f' }}%"></div>
+                        </div>
+                        <span class="fw-bold">{{ d.taxa_poupanca|floatformat:1 }}%</span>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <small class="fw-bold text-secondary">Uso do Cartão (Ideal: <30%)</small>
+                    <div class="d-flex align-items-center">
+                        <div class="progress flex-grow-1 me-2" style="height: 10px;">
+                            <div class="progress-bar {% if d.uso_cartao > 70 %}bg-danger{% else %}bg-primary{% endif %}" role="progressbar" style="width: {{ d.uso_cartao|stringformat:'f' }}%"></div>
+                        </div>
+                        <span class="fw-bold">{{ d.uso_cartao|floatformat:1 }}%</span>
+                    </div>
+                </div>
+
+                <div class="mb-0">
+                    <small class="fw-bold text-secondary">Contas em Atraso</small>
+                    {% if d.total_atrasado > 0 %}
+                        <div class="alert alert-danger py-2 mt-1 mb-0">
+                            <i class="bi bi-exclamation-triangle-fill"></i> R$ {{ d.total_atrasado|floatformat:2 }}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-success py-2 mt-1 mb-0">
+                            <i class="bi bi-check-circle-fill"></i> Nenhuma!
+                        </div>
+                    {% endif %}
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8 mb-4">
+        <div class="card shadow h-100">
+            <div class="card-header bg-white py-3">
+                <h6 class="m-0 fw-bold text-success"><i class="bi bi-prescription2"></i> Relatório & Dicas</h6>
+            </div>
+            <div class="card-body">
+                {% if d.recomendacoes %}
+                    {% for rec in d.recomendacoes %}
+                    <div class="d-flex align-items-start mb-4 p-3 rounded" style="background-color: #f8f9fc; border-left: 5px solid var(--bs-{{ rec.tipo }});">
+                        <div class="me-3 mt-1">
+                            {% if rec.tipo == 'danger' %}
+                                <i class="bi bi-x-octagon-fill text-danger fs-3"></i>
+                            {% elif rec.tipo == 'warning' %}
+                                <i class="bi bi-exclamation-diamond-fill text-warning fs-3"></i>
+                            {% elif rec.tipo == 'success' %}
+                                <i class="bi bi-trophy-fill text-success fs-3"></i>
+                            {% else %}
+                                <i class="bi bi-info-circle-fill text-info fs-3"></i>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <h6 class="fw-bold text-dark mb-1">{{ rec.titulo }}</h6>
+                            <p class="mb-0 text-secondary small">{{ rec.msg }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-emoji-sunglasses fs-1 text-success"></i>
+                        <h5 class="mt-3">Tudo perfeito!</h5>
+                        <p class="text-muted">Seu sistema financeiro está impecável. Nenhuma recomendação urgente.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

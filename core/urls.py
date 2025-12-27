@@ -31,7 +31,9 @@ urlpatterns = [
     path('financas/cartao/despesa/deletar/<int:id>/', views.despesa_cartao_deletar, name='despesa_cartao_deletar'),
 
     # --- MÓDULO INVESTIMENTOS (Novo & Separado) ---
-    path('investimentos/', views.investimentos_dashboard, name='investimentos_dashboard'), # <--- NOVA HOME
+    path('investimentos/', views.investimentos_dashboard, name='investimentos_dashboard'),
+    path('investimentos/bot/executar/', views.bot_executar, name='bot_executar'), 
+    # <--- NOVA HOME
     
     # Ativos (Ações, FIIs, etc)
     path('investimentos/ativo/novo/', views.ativo_novo, name='ativo_novo'),
@@ -65,6 +67,9 @@ urlpatterns = [
     path('contas/nova/', views.conta_pagar_nova, name='conta_pagar_nova'),
     path('contas/pagar/<int:id>/', views.conta_pagar_concluir, name='conta_pagar_concluir'),
     path('contas/deletar/<int:id>/', views.conta_pagar_deletar, name='conta_pagar_deletar'),
+
+    # --- MÓDULO SAÚDE FINANCEIRA ---
+    path('saude-financeira/', views.saude_financeira, name='saude_financeira'),
 
     # --- CONFIGURAÇÕES ---
     path('configuracoes/', views.configuracoes, name='configuracoes'),

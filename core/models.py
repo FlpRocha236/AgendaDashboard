@@ -2,7 +2,9 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone 
 
+# ==========================================
 # 1. AGENDA / COMPROMISSOS
+# ==========================================
 class Compromisso(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     titulo = models.CharField(max_length=200)
@@ -17,19 +19,23 @@ class Compromisso(models.Model):
     class Meta:
         ordering = ['data_hora']
 
+# ==========================================
 # 2. BLOCO DE NOTAS
+# ==========================================
 class Nota(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     titulo = models.CharField(max_length=200)
     conteudo = models.TextField()
-    cor = models.CharField(max_length=20, default='#ffffff') # Ajustado para hex
+    cor = models.CharField(max_length=20, default='#ffffff') 
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.titulo
 
-# 3. CONTROLE FINANCEIRO
+# ==========================================
+# 3. CONTROLE FINANCEIRO (Fluxo de Caixa)
+# ==========================================
 class Transacao(models.Model):
     TIPO_CHOICES = [
         ('receita', 'Receita (Entrada)'),
@@ -65,16 +71,15 @@ class Transacao(models.Model):
         verbose_name = "Transação"
         verbose_name_plural = "Transações"
 
-# === MÓDULO CARTÃO DE CRÉDITO ===
-
+# ==========================================
+# 4. CARTÃO DE CRÉDITO
+# ==========================================
 class CartaoCredito(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     nome = models.CharField(max_length=50, help_text="Ex: Nubank, Visa Platinum")
     limite = models.DecimalField(max_digits=10, decimal_places=2)
     dia_fechamento = models.IntegerField(help_text="Dia que a fatura fecha (1-31)", default=1)
     dia_vencimento = models.IntegerField(help_text="Dia que a fatura vence (1-31)")
-    
-    # --- NOVO CAMPO ADICIONADO ---
     cor_cartao = models.CharField(max_length=7, default='#4e73df', verbose_name="Cor do Cartão")
     
     def __str__(self):
@@ -94,34 +99,58 @@ class DespesaCartao(models.Model):
     def __str__(self):
         return f"{self.descricao} ({self.parcela_atual}/{self.parcelas})"
 
-# === MÓDULO INVESTIMENTOS ===
+# ==========================================
+# 5. INVESTIMENTOS
+# ==========================================
 
 class Ativo(models.Model):
-    TIPO_ATIVO = [
-        ('acao', 'Ação'),
-        ('fii', 'Fundo Imobiliário (FII)'),
-        ('renda_fixa', 'Renda Fixa / Tesouro'),
-        ('crypto', 'Criptomoeda'),
-        ('fundo', 'Fundo de Investimento'),
-        ('exterior', 'Stocks / REITs'),
+    TIPO_CHOICES = [
+        ('ACAO', 'Ação B3'),
+        ('FII', 'Fundo Imobiliário'),  # <--- ADICIONADO AQUI
+        ('ETF', 'ETF'),
+        ('CRIPTO', 'Criptomoeda'),
     ]
-    
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    codigo = models.CharField(max_length=20, help_text="Ex: PETR4, HGLG11, CDB Banco X")
-    tipo = models.CharField(max_length=20, choices=TIPO_ATIVO)
+    ticker = models.CharField(max_length=20) # Ex: WEGE3, XPLG11
+    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
+    setor = models.CharField(max_length=50, blank=True, null=True, help_text="Ex: Bancos, Logística")
     
-    # --- NOVO CAMPO ADICIONADO ---
-    setor = models.CharField(max_length=50, blank=True, null=True, help_text="Ex: Bancos, Logística, Tecnologia")
-    
-    # Campos calculados (cache)
-    quantidade_atual = models.DecimalField(max_digits=15, decimal_places=8, default=0) 
+    # Aumentei casas decimais para suportar frações de Cripto (ex: 0.00045 BTC)
+    quantidade_atual = models.DecimalField(max_digits=15, decimal_places=8, default=0)
     preco_medio = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     
-    def __str__(self):
-        return f"{self.codigo} ({self.get_tipo_display()})"
-
     def total_investido(self):
         return self.quantidade_atual * self.preco_medio
+
+    def __str__(self):
+        return f"{self.ticker} ({self.get_tipo_display()})"
+
+# --- O CÉREBRO DO ROBÔ ---
+class AnaliseBot(models.Model):
+    ativo = models.OneToOneField(Ativo, on_delete=models.CASCADE, related_name='analise')
+    data_analise = models.DateTimeField(auto_now=True)
+    
+    # Dados Coletados
+    preco_atual = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    pl = models.DecimalField(max_digits=10, decimal_places=2, null=True) # Preço/Lucro
+    pvp = models.DecimalField(max_digits=10, decimal_places=2, null=True) # Preço/VP
+    dy = models.DecimalField(max_digits=10, decimal_places=2, null=True) # Dividend Yield
+    roe = models.DecimalField(max_digits=10, decimal_places=2, null=True) # ROE
+    divida_liquida_pl = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+    
+    # Critérios (Checklist)
+    criterio_dy = models.BooleanField(default=False)
+    criterio_pl = models.BooleanField(default=False)
+    criterio_pvp = models.BooleanField(default=False)
+    criterio_roe = models.BooleanField(default=False)
+    criterio_divida = models.BooleanField(default=False)
+    
+    # Resultado Final
+    pontuacao = models.IntegerField(default=0)
+    recomendacao = models.CharField(max_length=50, default="AGUARDAR") 
+
+    def __str__(self):
+        return f"Análise {self.ativo.ticker}"
 
 class OperacaoInvestimento(models.Model):
     TIPO_OPERACAO = [
@@ -143,13 +172,16 @@ class OperacaoInvestimento(models.Model):
         return (self.quantidade * self.preco_unitario) + self.taxas
 
     def __str__(self):
-        return f"{self.tipo} - {self.ativo.codigo} - {self.data}"
+        return f"{self.tipo} - {self.ativo.ticker} - {self.data}"
 
+# ==========================================
+# 6. DESAFIOS & METAS
+# ==========================================
 class Desafio(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     objetivo = models.CharField(max_length=100, help_text="Ex: Trocar de Moto, Viagem")
     valor_inicial = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Depósito da 1ª Semana")
-    incremento = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Aumento por Semana", help_text="Quanto aumenta o depósito a cada semana?")
+    incremento = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Aumento por Semana")
     duracao_semanas = models.IntegerField(default=52, verbose_name="Duração (Semanas)")
     data_inicio = models.DateField(default=timezone.now)
     concluido = models.BooleanField(default=False)
@@ -183,7 +215,9 @@ class SemanaDesafio(models.Model):
     def __str__(self):
         return f"Semana {self.numero} - R$ {self.valor}"
 
-# 4. CONTAS A PAGAR & ALERTAS
+# ==========================================
+# 7. CONTAS A PAGAR & ALERTAS
+# ==========================================
 class ContaPagar(models.Model):
     RECORRENCIA_CHOICES = [
         ('U', 'Única'),
@@ -201,17 +235,13 @@ class ContaPagar(models.Model):
     class Meta:
         verbose_name = "Conta a Pagar"
         verbose_name_plural = "Contas a Pagar"
-        ordering = ['data_vencimento'] # Ordena sempre da mais urgente para a mais distante
+        ordering = ['data_vencimento'] 
 
     def __str__(self):
         return f"{self.titulo} - {self.data_vencimento.strftime('%d/%m')}"
     
     @property
     def status_vencimento(self):
-        """
-        Retorna o estado da conta para o alerta:
-        'atrasado', 'hoje', 'proximo', 'longe'
-        """
         if self.pago:
             return 'pago'
             
@@ -219,10 +249,10 @@ class ContaPagar(models.Model):
         dias_restantes = (self.data_vencimento - hoje).days
 
         if dias_restantes < 0:
-            return 'atrasado' # Venceu ontem ou antes
+            return 'atrasado' 
         elif dias_restantes == 0:
-            return 'hoje'     # Vence hoje
+            return 'hoje'     
         elif dias_restantes <= 5:
-            return 'proximo'  # Vence nos próximos 5 dias
+            return 'proximo'  
         else:
-            return 'longe'    # Tem tempo ainda
+            return 'longe'

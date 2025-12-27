@@ -1,58 +1,125 @@
 {% extends 'base.html' %}
 
-{% block title %}Carteira de Investimentos{% endblock %}
+{% block title %}Investimentos - Carteira Inteligente{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h1 class="h3 text-gray-800 fw-bold">Meus Investimentos</h1>
-        <p class="text-muted mb-0">Patrimônio Total: <strong class="text-success">R$ {{ total_investido|floatformat:2 }}</strong></p>
-    </div>
-    <div>
-        <a href="{% url 'ativo_novo' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Novo Ativo</a>
-        <a href="{% url 'operacao_nova' %}" class="btn btn-success btn-sm"><i class="bi bi-arrow-left-right"></i> Nova Operação</a>
-    </div>
+    <h1 class="h3 text-gray-800 fw-bold">Meus Investimentos</h1>
+    <span class="badge bg-success shadow fs-6">Patrimônio: R$ {{ total_investido|floatformat:2 }}</span>
 </div>
 
 <div class="card card-dashboard shadow mb-4">
     <div class="card-header py-3 bg-white border-bottom-0">
-        <h6 class="m-0 font-weight-bold text-primary">Carteira Consolidada</h6>
+        <ul class="nav nav-tabs card-header-tabs" id="investTabs" role="tablist">
+            <li class="nav-item">
+                <button class="nav-link active" id="carteira-tab" data-bs-toggle="tab" data-bs-target="#carteira" type="button">
+                    <i class="bi bi-wallet2"></i> Minha Carteira
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link text-primary fw-bold" id="bot-tab" data-bs-toggle="tab" data-bs-target="#bot" type="button">
+                    <i class="bi bi-robot"></i> Graham AI Bot
+                </button>
+            </li>
+        </ul>
     </div>
+
     <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle">
-                <thead class="table-light">
-                    <tr>
-                        <th>Código</th>
-                        <th>Tipo</th>
-                        <th>Setor</th>
-                        <th>Qtd.</th>
-                        <th>Preço Médio</th>
-                        <th>Total Investido</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for ativo in ativos %}
-                    <tr>
-                        <td class="fw-bold">{{ ativo.codigo }}</td>
-                        <td><span class="badge bg-info text-dark">{{ ativo.get_tipo_display }}</span></td>
-                        <td>{{ ativo.setor|default:"-" }}</td>
-                        <td>{{ ativo.quantidade_atual|floatformat:2 }}</td>
-                        <td>R$ {{ ativo.preco_medio|floatformat:2 }}</td>
-                        <td class="fw-bold text-success">R$ {{ ativo.total_investido|floatformat:2 }}</td>
-                        <td>
-                            <a href="#" class="text-secondary me-2" title="Histórico (Em breve)"><i class="bi bi-clock-history"></i></a>
-                            <a href="{% url 'ativo_deletar' ativo.id %}" class="text-danger" onclick="return confirm('Excluir ativo e histórico?')" title="Excluir"><i class="bi bi-trash"></i></a>
-                        </td>
-                    </tr>
+        <div class="tab-content">
+            
+            <div class="tab-pane fade show active" id="carteira">
+                <div class="d-flex justify-content-end mb-3">
+                    <a href="{% url 'ativo_novo' %}" class="btn btn-success btn-sm me-2">+ Novo Ativo</a>
+                    <a href="{% url 'operacao_nova' %}" class="btn btn-primary btn-sm">Nova Operação</a>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Ativo</th>
+                                <th>Tipo</th>
+                                <th>Qtd</th>
+                                <th>Médio</th>
+                                <th>Total</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ativo in ativos %}
+                            <tr>
+                                <td class="fw-bold">{{ ativo.ticker }}</td>
+                                <td><span class="badge bg-light text-secondary border">{{ ativo.get_tipo_display }}</span></td>
+                                <td>{{ ativo.quantidade_atual }}</td>
+                                <td>R$ {{ ativo.preco_medio|floatformat:2 }}</td>
+                                <td class="fw-bold text-success">R$ {{ ativo.total_investido|floatformat:2 }}</td>
+                                <td>
+                                    <a href="{% url 'ativo_deletar' ativo.id %}" class="text-danger" onclick="return confirm('Excluir?')"><i class="bi bi-trash"></i></a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="6" class="text-center text-muted">Nenhum ativo. Cadastre um novo!</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="bot">
+                <div class="text-center mb-4">
+                    <a href="{% url 'bot_executar' %}" class="btn btn-lg btn-primary shadow-sm rounded-pill">
+                        <i class="bi bi-cpu"></i> Rodar Análise Agora
+                    </a>
+                    <p class="small text-muted mt-2">Analisa Ações (Graham), FIIs (Renda) e Cripto (Balanceamento)</p>
+                </div>
+
+                <div class="row">
+                    {% for analise in analises %}
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="card h-100 shadow-sm border-0 {% if 'COMPRAR' in analise.recomendacao or 'APORTAR' in analise.recomendacao %}border-start border-success border-5{% elif 'VENDER' in analise.recomendacao %}border-start border-danger border-5{% else %}border-start border-warning border-5{% endif %}">
+                            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h5 class="fw-bold mb-0">{{ analise.ativo.ticker }}</h5>
+                                    <small class="text-muted">{{ analise.ativo.get_tipo_display }}</small>
+                                </div>
+                                <span class="badge {% if 'COMPRAR' in analise.recomendacao or 'APORTAR' in analise.recomendacao %}bg-success{% elif 'VENDER' in analise.recomendacao %}bg-danger{% else %}bg-warning text-dark{% endif %}">
+                                    {{ analise.recomendacao }}
+                                </span>
+                            </div>
+                            <div class="card-body">
+                                <div class="row text-center mb-3">
+                                    <div class="col-6"><small class="text-muted d-block">Preço</small><strong>R$ {{ analise.preco_atual }}</strong></div>
+                                    <div class="col-6"><small class="text-muted d-block">Score</small><strong class="text-warning">{{ analise.pontuacao }}/5</strong></div>
+                                </div>
+                                <ul class="list-group list-group-flush small">
+                                    {% if analise.ativo.tipo == 'ACAO' or analise.ativo.tipo == 'FII' %}
+                                        <li class="list-group-item d-flex justify-content-between">
+                                            <span>Dividend Yield</span>
+                                            <span class="fw-bold {% if analise.criterio_dy %}text-success{% endif %}">{{ analise.dy|floatformat:1 }}%</span>
+                                        </li>
+                                        <li class="list-group-item d-flex justify-content-between">
+                                            <span>P/VP</span>
+                                            <span class="fw-bold {% if analise.criterio_pvp %}text-success{% endif %}">{{ analise.pvp|floatformat:2 }}</span>
+                                        </li>
+                                    {% endif %}
+                                    {% if analise.ativo.tipo == 'ACAO' %}
+                                        <li class="list-group-item d-flex justify-content-between">
+                                            <span>P/L</span>
+                                            <span class="fw-bold {% if analise.criterio_pl %}text-success{% endif %}">{{ analise.pl|floatformat:1 }}</span>
+                                        </li>
+                                    {% endif %}
+                                    {% if analise.ativo.tipo == 'CRIPTO' %}
+                                        <li class="list-group-item bg-light text-center fst-italic">"Rebalanceamento de Carteira (Meta: 5%)"</li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
                     {% empty %}
-                    <tr>
-                        <td colspan="7" class="text-center text-muted py-4">Sua carteira está vazia. Comece a investir! </td>
-                    </tr>
+                    <div class="col-12 text-center py-4 text-muted">O robô ainda não rodou. Clique no botão acima!</div>
                     {% endfor %}
-                </tbody>
-            </table>
+                </div>
+            </div>
+
         </div>
     </div>
 </div>

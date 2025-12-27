@@ -6,10 +6,22 @@ from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import PasswordChangeForm
 from datetime import datetime, timedelta
+from .health_logic import gerar_diagnostico_financeiro
 
 # Importação dos Models e Forms
-from .models import Compromisso, Nota, Transacao, CartaoCredito, DespesaCartao, Ativo, OperacaoInvestimento, Desafio, SemanaDesafio, ContaPagar
-from .forms import TransacaoForm, CompromissoForm, NotaForm, PerfilForm, CartaoForm, DespesaCartaoForm, AtivoForm, OperacaoInvestimentoForm, DesafioForm, UsuarioRegistroForm, ContaPagarForm
+from .models import (
+    Compromisso, Nota, Transacao, CartaoCredito, DespesaCartao, 
+    Ativo, OperacaoInvestimento, Desafio, SemanaDesafio, ContaPagar, 
+    AnaliseBot  # <--- ADICIONADO AQUI
+)
+from .forms import (
+    TransacaoForm, CompromissoForm, NotaForm, PerfilForm, CartaoForm, 
+    DespesaCartaoForm, AtivoForm, OperacaoInvestimentoForm, DesafioForm, 
+    UsuarioRegistroForm, ContaPagarForm
+)
+
+# Importação da Lógica do Robô
+from .bot_logic import executar_analise_carteira  # <--- ADICIONADO AQUI
 
 # --- FUNÇÃO AUXILIAR (Helper) ---
 def recalcular_ativo(ativo):
@@ -119,7 +131,7 @@ def dashboard(request):
     # 4. DESAFIO ATIVO
     desafio_ativo = Desafio.objects.filter(user=request.user, concluido=False).first()
 
-    # 5. CONTAS A PAGAR (NOVO!)
+    # 5. CONTAS A PAGAR
     contas_pendentes = ContaPagar.objects.filter(user=request.user, pago=False).order_by('data_vencimento')
 
     context = {
@@ -134,7 +146,7 @@ def dashboard(request):
         'data_cartao': data_cartao,
         'colors_cartao': colors_cartao,
         'desafio_ativo': desafio_ativo,
-        'contas_pendentes': contas_pendentes, # Enviando para o template
+        'contas_pendentes': contas_pendentes, 
     }
     return render(request, 'dashboard.html', context)
 
@@ -196,21 +208,38 @@ def financas(request):
     context = {
         'transacoes': transacoes,
         'cartoes': cartoes,
-        'mes_atual': mes_filtro, # Para marcar o select no HTML
-        'ano_atual': ano_filtro, # Para preencher o input no HTML
+        'mes_atual': mes_filtro,
+        'ano_atual': ano_filtro,
     }
     return render(request, 'financas.html', context)
+
+# --- INVESTIMENTOS & ROBÔ ---
 
 @login_required
 def investimentos_dashboard(request):
     ativos = Ativo.objects.filter(user=request.user)
     total_investido = sum(a.total_investido() for a in ativos)
     
+    # Busca as análises salvas para exibir no Template
+    analises = AnaliseBot.objects.filter(ativo__user=request.user).order_by('-pontuacao')
+
     context = {
         'ativos': ativos,
         'total_investido': total_investido,
+        'analises': analises, 
     }
     return render(request, 'investimentos.html', context)
+
+@login_required
+def bot_executar(request):
+    """ Botão que roda a análise """
+    try:
+        executar_analise_carteira(request.user)
+        messages.success(request, "Robô finalizou a análise da carteira!")
+    except Exception as e:
+        messages.error(request, f"Erro ao rodar o robô: {str(e)}")
+        
+    return redirect('investimentos_dashboard')
 
 # --- AGENDA & NOTAS (Listas) ---
 
@@ -606,3 +635,24 @@ def conta_pagar_deletar(request, id):
     conta = get_object_or_404(ContaPagar, pk=id, user=request.user)
     conta.delete()
     return redirect('dashboard')
+
+@login_required
+def saude_financeira(request):
+    diagnostico = gerar_diagnostico_financeiro(request.user)
+    
+    # Define cor do Score
+    cor_score = 'success'
+    msg_score = 'Excelente'
+    if diagnostico['score'] < 50:
+        cor_score = 'danger'
+        msg_score = 'Crítico'
+    elif diagnostico['score'] < 70:
+        cor_score = 'warning'
+        msg_score = 'Atenção'
+        
+    context = {
+        'd': diagnostico,
+        'cor_score': cor_score,
+        'msg_score': msg_score
+    }
+    return render(request, 'saude_financeira.html', context)

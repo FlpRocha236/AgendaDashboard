@@ -182,3 +182,47 @@ class SemanaDesafio(models.Model):
 
     def __str__(self):
         return f"Semana {self.numero} - R$ {self.valor}"
+
+# 4. CONTAS A PAGAR & ALERTAS
+class ContaPagar(models.Model):
+    RECORRENCIA_CHOICES = [
+        ('U', 'Única'),
+        ('M', 'Mensal'),
+        ('A', 'Anual'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    titulo = models.CharField(max_length=100, help_text="Ex: IPVA, Seguro Carro, Netflix")
+    valor = models.DecimalField(max_digits=10, decimal_places=2)
+    data_vencimento = models.DateField()
+    pago = models.BooleanField(default=False)
+    recorrencia = models.CharField(max_length=1, choices=RECORRENCIA_CHOICES, default='M')
+    
+    class Meta:
+        verbose_name = "Conta a Pagar"
+        verbose_name_plural = "Contas a Pagar"
+        ordering = ['data_vencimento'] # Ordena sempre da mais urgente para a mais distante
+
+    def __str__(self):
+        return f"{self.titulo} - {self.data_vencimento.strftime('%d/%m')}"
+    
+    @property
+    def status_vencimento(self):
+        """
+        Retorna o estado da conta para o alerta:
+        'atrasado', 'hoje', 'proximo', 'longe'
+        """
+        if self.pago:
+            return 'pago'
+            
+        hoje = timezone.now().date()
+        dias_restantes = (self.data_vencimento - hoje).days
+
+        if dias_restantes < 0:
+            return 'atrasado' # Venceu ontem ou antes
+        elif dias_restantes == 0:
+            return 'hoje'     # Vence hoje
+        elif dias_restantes <= 5:
+            return 'proximo'  # Vence nos próximos 5 dias
+        else:
+            return 'longe'    # Tem tempo ainda

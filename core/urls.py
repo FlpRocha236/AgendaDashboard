@@ -61,6 +61,11 @@ urlpatterns = [
     path('desafios/pagar/<int:id>/', views.desafio_pagar_semana, name='desafio_pagar_semana'),
     path('desafios/excluir/<int:id>/', views.desafio_excluir, name='desafio_excluir'),
 
+    # --- MÓDULO CONTAS A PAGAR ---
+    path('contas/nova/', views.conta_pagar_nova, name='conta_pagar_nova'),
+    path('contas/pagar/<int:id>/', views.conta_pagar_concluir, name='conta_pagar_concluir'),
+    path('contas/deletar/<int:id>/', views.conta_pagar_deletar, name='conta_pagar_deletar'),
+
     # --- CONFIGURAÇÕES ---
     path('configuracoes/', views.configuracoes, name='configuracoes'),
     path('configuracoes/senha/', views.alterar_senha, name='alterar_senha'),

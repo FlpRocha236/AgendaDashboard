@@ -1,5 +1,5 @@
 from django import forms
-from .models import Compromisso, Nota, Transacao, CartaoCredito, DespesaCartao, Ativo, OperacaoInvestimento, Desafio
+from .models import Compromisso, Nota, Transacao, CartaoCredito, DespesaCartao, Ativo, OperacaoInvestimento, Desafio, ContaPagar
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
 
@@ -122,3 +122,14 @@ class UsuarioRegistroForm(UserCreationForm):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             field.widget.attrs['class'] = 'form-control'
+
+class ContaPagarForm(forms.ModelForm):
+    class Meta:
+        model = ContaPagar
+        fields = ['titulo', 'valor', 'data_vencimento', 'recorrencia']
+        widgets = {
+            'titulo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Seguro do Carro'}),
+            'valor': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'data_vencimento': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
+            'recorrencia': forms.Select(attrs={'class': 'form-control'}),
+        }

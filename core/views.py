@@ -8,8 +8,8 @@ from django.contrib.auth.forms import PasswordChangeForm
 from datetime import datetime, timedelta
 
 # Importação dos Models e Forms
-from .models import Compromisso, Nota, Transacao, CartaoCredito, DespesaCartao, Ativo, OperacaoInvestimento, Desafio, SemanaDesafio
-from .forms import TransacaoForm, CompromissoForm, NotaForm, PerfilForm, CartaoForm, DespesaCartaoForm, AtivoForm, OperacaoInvestimentoForm, DesafioForm, UsuarioRegistroForm
+from .models import Compromisso, Nota, Transacao, CartaoCredito, DespesaCartao, Ativo, OperacaoInvestimento, Desafio, SemanaDesafio, ContaPagar
+from .forms import TransacaoForm, CompromissoForm, NotaForm, PerfilForm, CartaoForm, DespesaCartaoForm, AtivoForm, OperacaoInvestimentoForm, DesafioForm, UsuarioRegistroForm, ContaPagarForm
 
 # --- FUNÇÃO AUXILIAR (Helper) ---
 def recalcular_ativo(ativo):
@@ -119,9 +119,12 @@ def dashboard(request):
     # 4. DESAFIO ATIVO
     desafio_ativo = Desafio.objects.filter(user=request.user, concluido=False).first()
 
+    # 5. CONTAS A PAGAR (NOVO!)
+    contas_pendentes = ContaPagar.objects.filter(user=request.user, pago=False).order_by('data_vencimento')
+
     context = {
         'receitas': receitas,
-        'despesas': total_despesas, # <--- Agora inclui os cartões!
+        'despesas': total_despesas,
         'saldo': saldo,
         'compromissos': proximos_compromissos,
         'notas': notas,
@@ -131,52 +134,60 @@ def dashboard(request):
         'data_cartao': data_cartao,
         'colors_cartao': colors_cartao,
         'desafio_ativo': desafio_ativo,
+        'contas_pendentes': contas_pendentes, # Enviando para o template
     }
     return render(request, 'dashboard.html', context)
 
 # --- FINANÇAS (FLUXO E CARTÕES) ---
-
 @login_required
 def financas(request):
-    # 1. Fluxo de Caixa (Transações normais)
-    transacoes = Transacao.objects.filter(user=request.user).order_by('-data')
+    # --- 1. CONFIGURAÇÃO DO FILTRO DE DATA ---
+    agora = timezone.now()
+    
+    # Tenta pegar da URL (?mes=1&ano=2025), se não tiver, usa o atual
+    mes_filtro = request.GET.get('mes', agora.month)
+    ano_filtro = request.GET.get('ano', agora.year)
+    
+    try:
+        mes_filtro = int(mes_filtro)
+        ano_filtro = int(ano_filtro)
+    except ValueError:
+        mes_filtro = agora.month
+        ano_filtro = agora.year
 
-    # 2. Cartões de Crédito (Lógica da Fatura Mensal)
+    # --- 2. FLUXO DE CAIXA (FILTRADO) ---
+    transacoes = Transacao.objects.filter(
+        user=request.user,
+        data__month=mes_filtro,
+        data__year=ano_filtro
+    ).order_by('-data')
+
+    # --- 3. CARTÕES DE CRÉDITO (PROJEÇÃO DA FATURA) ---
     cartoes = CartaoCredito.objects.filter(user=request.user)
     
-    agora = timezone.now()
-    mes_atual = agora.month
-    ano_atual = agora.year
-
     for cartao in cartoes:
         despesas = DespesaCartao.objects.filter(cartao=cartao)
-        fatura_mes = 0 # Valor que será pago neste mês
-        total_divida = 0 # Valor total comprometido (limite usado)
+        fatura_mes = 0 
+        total_divida = 0 
 
         for despesa in despesas:
-            # Calcula o valor total usado do limite
             total_divida += despesa.valor 
 
-            # --- LÓGICA DA PARCELA MENSAL ---
-            # 1. Qual o valor da parcela?
+            # LÓGICA DE PROJEÇÃO:
+            # Calcula a parcela baseada no Mês/Ano SELECIONADO pelo usuário
             valor_parcela = despesa.valor / despesa.parcelas
             
-            # 2. Calcular quantos meses se passaram desde a compra até hoje
-            # Ex: Comprou em Janeiro, estamos em Março = passaram 2 meses
-            meses_passados = (ano_atual - despesa.data_compra.year) * 12 + (mes_atual - despesa.data_compra.month)
+            # Quantos meses se passaram da compra até a data do filtro?
+            meses_passados = (ano_filtro - despesa.data_compra.year) * 12 + (mes_filtro - despesa.data_compra.month)
             
-            # 3. Ajuste do Dia de Fechamento (Opcional, mas preciso)
-            # Se a compra foi feita DEPOIS do fechamento, ela pula pro próximo mês
-            # Vamos simplificar: Se meses_passados for menor que o total de parcelas, a conta existe.
+            # Se o resultado estiver entre 0 e o número de parcelas, a conta cai neste mês filtrado
             if 0 <= meses_passados < despesa.parcelas:
                 fatura_mes += valor_parcela
         
-        # Atribui os valores calculados ao objeto cartão para usar no HTML
         cartao.fatura_atual = fatura_mes
-        cartao.total_gasto = total_divida # Limite tomado total
+        cartao.total_gasto = total_divida
         cartao.disponivel = cartao.limite - total_divida
         
-        # Barra de progresso (baseada no limite total tomado)
         if cartao.limite > 0:
             cartao.porcentagem_uso = (total_divida / cartao.limite) * 100
         else:
@@ -185,6 +196,8 @@ def financas(request):
     context = {
         'transacoes': transacoes,
         'cartoes': cartoes,
+        'mes_atual': mes_filtro, # Para marcar o select no HTML
+        'ano_atual': ano_filtro, # Para preencher o input no HTML
     }
     return render(request, 'financas.html', context)
 
@@ -411,7 +424,6 @@ def ativo_novo(request):
             ativo = form.save(commit=False)
             ativo.user = request.user
             ativo.save()
-            # AGORA REDIRECIONA PARA INVESTIMENTOS
             return redirect('investimentos_dashboard')
     else:
         form = AtivoForm()
@@ -422,7 +434,6 @@ def ativo_deletar(request, id):
     ativo = get_object_or_404(Ativo, pk=id)
     if ativo.user == request.user:
         ativo.delete()
-    # AGORA REDIRECIONA PARA INVESTIMENTOS
     return redirect('investimentos_dashboard')
 
 @login_required
@@ -438,7 +449,6 @@ def operacao_nova(request):
             operacao.save()
             recalcular_ativo(operacao.ativo)
             
-            # AGORA REDIRECIONA PARA INVESTIMENTOS
             return redirect('investimentos_dashboard')
     else:
         form = OperacaoInvestimentoForm()
@@ -456,7 +466,6 @@ def operacao_editar(request, id):
         if form.is_valid():
             operacao = form.save()
             recalcular_ativo(operacao.ativo) 
-            # AGORA REDIRECIONA PARA INVESTIMENTOS
             return redirect('investimentos_dashboard')
     else:
         form = OperacaoInvestimentoForm(instance=operacao)
@@ -469,7 +478,6 @@ def operacao_deletar(request, id):
     if ativo.user == request.user:
         operacao.delete()
         recalcular_ativo(ativo) 
-    # AGORA REDIRECIONA PARA INVESTIMENTOS
     return redirect('investimentos_dashboard')
 
 # --- MÓDULO DE DESAFIOS & METAS ---
@@ -537,3 +545,64 @@ def registrar_usuario(request):
     else:
         form = UsuarioRegistroForm()
     return render(request, 'registration/register.html', {'form': form})
+
+# --- MÓDULO DE CONTAS A PAGAR (RECORRENTES) ---
+
+@login_required
+def conta_pagar_nova(request):
+    if request.method == 'POST':
+        form = ContaPagarForm(request.POST)
+        if form.is_valid():
+            conta = form.save(commit=False)
+            conta.user = request.user
+            conta.save()
+            return redirect('dashboard')
+    else:
+        form = ContaPagarForm()
+    return render(request, 'form_generico.html', {'form': form, 'titulo': 'Nova Conta / Alerta'})
+
+@login_required
+def conta_pagar_concluir(request, id):
+    conta = get_object_or_404(ContaPagar, pk=id, user=request.user)
+    
+    # Marca como paga
+    conta.pago = True
+    conta.save()
+
+    # Se for recorrente, cria a próxima automaticamente
+    if conta.recorrencia in ['M', 'A']:
+        nova_data = conta.data_vencimento
+        
+        if conta.recorrencia == 'M': # Mensal: Adiciona 1 mês
+            mes = nova_data.month + 1
+            ano = nova_data.year
+            if mes > 12:
+                mes = 1
+                ano += 1
+            
+            try:
+                nova_data = nova_data.replace(year=ano, month=mes)
+            except ValueError:
+                nova_data = nova_data.replace(year=ano, month=mes, day=28) 
+                
+        elif conta.recorrencia == 'A': # Anual: Adiciona 1 ano
+            nova_data = nova_data.replace(year=nova_data.year + 1)
+
+        # Cria a nova conta futura
+        ContaPagar.objects.create(
+            user=request.user,
+            titulo=conta.titulo,
+            valor=conta.valor,
+            data_vencimento=nova_data,
+            recorrencia=conta.recorrencia,
+            pago=False
+        )
+        messages.success(request, 'Conta paga! A próxima fatura foi gerada automaticamente.')
+
+    return redirect('dashboard')
+
+@login_required
+def conta_pagar_deletar(request, id):
+    conta = get_object_or_404(ContaPagar, pk=id, user=request.user)
+    conta.delete()
+    return redirect('dashboard')

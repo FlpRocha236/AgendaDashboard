@@ -526,23 +526,34 @@ def desafio_novo(request):
             desafio.user = request.user
             desafio.save()
 
-            valor_atual = desafio.valor_inicial
             data_atual = desafio.data_inicio
             
             for i in range(1, desafio.duracao_semanas + 1):
+                # LÓGICA DE DOBRA (Exponencial)
+                # Fórmula: Valor Inicial * (2 elevado a (semana - 1))
+                # i=1 -> 2^0 (1) -> Valor * 1
+                # i=2 -> 2^1 (2) -> Valor * 2
+                # i=3 -> 2^2 (4) -> Valor * 4
+                
+                fator_multiplicacao = 2 ** (i - 1)
+                valor_semana = desafio.valor_inicial * fator_multiplicacao
+                
                 SemanaDesafio.objects.create(
                     desafio=desafio,
                     numero=i,
-                    data_prevista=data_atual,
-                    valor=valor_atual
+                    data_alvo=data_atual,
+                    valor_meta=valor_semana,
+                    depositado=False
                 )
-                valor_atual += desafio.incremento
-                data_atual += timedelta(days=7)
+                
+                data_atual = data_atual + timedelta(days=7)
 
-            return redirect('desafios_lista')
+            messages.success(request, 'Desafio Exponencial criado com sucesso!')
+            return redirect('investimentos_dashboard')
     else:
         form = DesafioForm()
-    return render(request, 'form_generico.html', {'form': form, 'titulo': 'Novo Desafio Financeiro'})
+    
+    return render(request, 'desafio_form.html', {'form': form})
 
 @login_required
 def desafio_pagar_semana(request, id):

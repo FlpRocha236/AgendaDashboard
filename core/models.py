@@ -177,18 +177,32 @@ class OperacaoInvestimento(models.Model):
 # ==========================================
 # 6. DESAFIOS & METAS
 # ==========================================
+
 class Desafio(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     objetivo = models.CharField(max_length=100, help_text="Ex: Trocar de Moto, Viagem")
-    valor_inicial = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Depósito da 1ª Semana")
-    incremento = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Aumento por Semana")
-    duracao_semanas = models.IntegerField(default=52, verbose_name="Duração (Semanas)")
+    valor_inicial = models.DecimalField(max_digits=20, decimal_places=2, verbose_name="Depósito da 1ª Semana") # Aumentei digits
+    
+    # O incremento não é mais usado na lógica de dobrar, mas mantemos para não precisar apagar do banco agora
+    incremento = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Aumento por Semana", null=True, blank=True)
+    
+    duracao_semanas = models.IntegerField(default=12, verbose_name="Duração (Semanas)") # Reduzi default para 12 (mais realista pra dobrar)
     data_inicio = models.DateField(default=timezone.now)
     concluido = models.BooleanField(default=False)
 
     def total_planejado(self):
-        valor_final = self.valor_inicial + ((self.duracao_semanas - 1) * self.incremento)
-        return (self.valor_inicial + valor_final) * self.duracao_semanas / 2
+        # LÓGICA INTELIGENTE:
+        # Se as semanas já foram geradas, somamos elas diretamente do banco.
+        # Isso funciona tanto pra lógica antiga (Aritmética) quanto pra nova (Dobrar)
+        if self.semanas.exists():
+            return self.semanas.aggregate(models.Sum('valor'))['valor__sum'] or 0
+        
+        # Previsão Matemática (Caso ainda não tenha gerado): PG de razão 2
+        # S_n = a1 * (2^n - 1)
+        try:
+            return self.valor_inicial * (2 ** self.duracao_semanas - 1)
+        except:
+            return 0
 
     def total_pago(self):
         return self.semanas.filter(pago=True).aggregate(models.Sum('valor'))['valor__sum'] or 0
@@ -205,7 +219,8 @@ class SemanaDesafio(models.Model):
     desafio = models.ForeignKey(Desafio, on_delete=models.CASCADE, related_name='semanas')
     numero = models.IntegerField()
     data_prevista = models.DateField()
-    valor = models.DecimalField(max_digits=10, decimal_places=2)
+    # Aumentei max_digits aqui também para aguentar valores exponenciais
+    valor = models.DecimalField(max_digits=20, decimal_places=2) 
     pago = models.BooleanField(default=False)
     data_pagamento = models.DateField(null=True, blank=True)
 

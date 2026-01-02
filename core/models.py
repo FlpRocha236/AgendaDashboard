@@ -114,6 +114,7 @@ class Ativo(models.Model):
     ticker = models.CharField(max_length=20) # Ex: WEGE3, XPLG11
     tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
     setor = models.CharField(max_length=50, blank=True, null=True, help_text="Ex: Bancos, Logística")
+    data_inicio = models.DateField(default=timezone.now, help_text="Data da primeira compra para cálculo de dividendos")
     
     # Aumentei casas decimais para suportar frações de Cripto (ex: 0.00045 BTC)
     quantidade_atual = models.DecimalField(max_digits=15, decimal_places=8, default=0)
@@ -191,16 +192,16 @@ class Desafio(models.Model):
     concluido = models.BooleanField(default=False)
 
     def total_planejado(self):
-        # LÓGICA INTELIGENTE:
-        # Se as semanas já foram geradas, somamos elas diretamente do banco.
-        # Isso funciona tanto pra lógica antiga (Aritmética) quanto pra nova (Dobrar)
+        # Se as semanas já existem, soma elas (é o mais seguro)
         if self.semanas.exists():
             return self.semanas.aggregate(models.Sum('valor'))['valor__sum'] or 0
-        
-        # Previsão Matemática (Caso ainda não tenha gerado): PG de razão 2
-        # S_n = a1 * (2^n - 1)
+            
+        # Fórmula da Soma de P.A. (Caso ainda não tenha gerado)
+        # ((a1 + an) * n) / 2
         try:
-            return self.valor_inicial * (2 ** self.duracao_semanas - 1)
+            valor_final = self.valor_inicial + ((self.duracao_semanas - 1) * self.incremento)
+            total = (self.valor_inicial + valor_final) * self.duracao_semanas / 2
+            return total
         except:
             return 0
 

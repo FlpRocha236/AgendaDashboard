@@ -140,11 +140,13 @@ class NotaForm(forms.ModelForm):
 class DesafioForm(forms.ModelForm):
     class Meta:
         model = Desafio
-        fields = ['objetivo', 'valor_inicial', 'duracao_semanas', 'data_inicio']
+        # Adicionei 'incremento' de volta na lista
+        fields = ['objetivo', 'valor_inicial', 'incremento', 'duracao_semanas', 'data_inicio']
         widgets = {
-            'objetivo': forms.TextInput(attrs={'class': 'form-control'}),
+            'objetivo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Viagem, PS5'}),
             'valor_inicial': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'duracao_semanas': forms.NumberInput(attrs={'class': 'form-control'}),
+            'incremento': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Quanto aumenta por semana?'}),
+            'duracao_semanas': forms.NumberInput(attrs={'class': 'form-control', 'value': 52}),
             'data_inicio': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
         }
 

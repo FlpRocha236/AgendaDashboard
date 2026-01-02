@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}Novo Desafio{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="bi bi-trophy-fill"></i> Criar Novo Desafio
+                </h6>
+                <a href="{% url 'desafios_lista' %}" class="btn btn-sm btn-secondary">Voltar</a>
+            </div>
+            <div class="card-body">
+                
+                <div class="alert alert-success border-start border-success border-4">
+                    <h5 class="alert-heading"><i class="bi bi-piggy-bank"></i> Desafio Progressivo</h5>
+                    <p class="mb-0 small">
+                        Neste desafio, o valor guardado <strong>aumenta um pouco a cada semana</strong> (Progressão Aritmética).
+                    </p>
+                    <hr>
+                    <p class="mb-0 small">
+                        <strong>Exemplo: Início R$ 10,00 e Aumento R$ 5,00</strong><br>
+                        Semana 1: R$ 10,00<br>
+                        Semana 2: R$ 15,00<br>
+                        Semana 3: R$ 20,00...
+                    </p>
+                </div>
+
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    {% for field in form %}
+                    <div class="mb-3">
+                        <label for="{{ field.id_for_label }}" class="form-label fw-bold">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}
+                            <div class="form-text text-muted">{{ field.help_text }}</div>
+                        {% endif %}
+                        {% for error in field.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="bi bi-rocket-takeoff"></i> Iniciar Desafio
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

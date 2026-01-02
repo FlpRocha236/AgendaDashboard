@@ -517,6 +517,8 @@ def desafios_lista(request):
     desafios = Desafio.objects.filter(user=request.user, concluido=False)
     return render(request, 'desafios.html', {'desafios': desafios})
 
+# core/views.py
+
 @login_required
 def desafio_novo(request):
     if request.method == 'POST':
@@ -524,32 +526,37 @@ def desafio_novo(request):
         if form.is_valid():
             desafio = form.save(commit=False)
             desafio.user = request.user
+            
+            # Garante que incremento não seja None para não dar erro na conta
+            if not desafio.incremento:
+                desafio.incremento = 0
+                
             desafio.save()
 
             data_atual = desafio.data_inicio
             
+            # Gera as semanas
             for i in range(1, desafio.duracao_semanas + 1):
-                # LÓGICA DE DOBRA (Exponencial)
-                # Fórmula: Valor Inicial * (2 elevado a (semana - 1))
-                # i=1 -> 2^0 (1) -> Valor * 1
-                # i=2 -> 2^1 (2) -> Valor * 2
-                # i=3 -> 2^2 (4) -> Valor * 4
                 
-                fator_multiplicacao = 2 ** (i - 1)
-                valor_semana = desafio.valor_inicial * fator_multiplicacao
+                # LÓGICA ANTIGA (Aritmética):
+                # Valor = Inicial + ((Semana - 1) * Aumento)
+                acrescimo = (i - 1) * desafio.incremento
+                valor_semana = desafio.valor_inicial + acrescimo
                 
                 SemanaDesafio.objects.create(
                     desafio=desafio,
                     numero=i,
-                    data_alvo=data_atual,
-                    valor_meta=valor_semana,
-                    depositado=False
+                    data_prevista=data_atual,
+                    valor=valor_semana,
+                    pago=False
                 )
                 
+                # Avança 7 dias
                 data_atual = data_atual + timedelta(days=7)
 
-            messages.success(request, 'Desafio Exponencial criado com sucesso!')
+            messages.success(request, 'Desafio criado com sucesso!')
             return redirect('investimentos_dashboard')
+            
     else:
         form = DesafioForm()
     
@@ -672,9 +679,13 @@ def saude_financeira(request):
 @login_required
 def radar_mercado(request):
     """
-    Varre o mercado e retorna apenas as TOP oportunidades
+    Varre o mercado e retorna apenas as TOP oportunidades (COM DEBUG)
     """
+    # Chama a função que busca no Fundamentus
     oportunidades = buscar_oportunidades_mercado()
+    
+    # --- DEBUG: Mostra no terminal o que chegou ---
+    print(f"--- [VIEW DEBUG] A View recebeu {len(oportunidades)} oportunidades. ---")
     
     context = {
         'oportunidades': oportunidades

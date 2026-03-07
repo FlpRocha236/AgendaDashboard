@@ -4,6 +4,9 @@ Um sistema completo para **gestão financeira pessoal**, análise de investiment
 
 O **My OS** funciona como um verdadeiro **sistema operacional financeiro**, centralizando dados, automatizando análises e gerando insights inteligentes para melhorar a saúde financeira do usuário.
 
+Acesse aqui.
+https://flprocha.pythonanywhere.com/
+
 ---
 
 ## 🎯 Objetivo do Projeto
